@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: newsify-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - newsify-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: newsify-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://root:password@mongodb:27017/newsify?authSource=admin
+    depends_on:
+      - mongodb
+    networks:
+      - newsify-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: newsify-frontend
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:3000
+    depends_on:
+      - backend
+    networks:
+      - newsify-network
+
+networks:
+  newsify-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local
