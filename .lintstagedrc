@@ -1,0 +1,26 @@
+{
+  "backend/**/*.{css,scss}": [
+    "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --write"
+  ],
+  "backend/**/*.{js,jsx,ts,tsx}": [
+    "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --trailing-comma all --write"
+  ],
+  "backend/**/*.json": [
+    "prettier --ignore-path .eslintignore --write"
+  ],
+  "backend/**/*.{html,md,yml}": [
+    "prettier --ignore-path .eslintignore --single-quote --write"
+  ],
+  "frontend/**/*.{css,scss}": [
+    "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --write"
+  ],
+  "frontend/**/*.{js,jsx,ts,tsx}": [
+    "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --trailing-comma all --write"
+  ],
+  "frontend/**/*.json": [
+    "prettier --ignore-path .eslintignore --write"
+  ],
+  "frontend/**/*.{html,md,yml}": [
+    "prettier --ignore-path .eslintignore --single-quote --write"
+  ]
+} 

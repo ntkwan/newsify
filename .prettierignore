@@ -1,0 +1,18 @@
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Data and pipeline directories (likely Python)
+data/
+pipeline/
+
+# Other files
+.git
+*.log
+*.lock
+package-lock.json 
