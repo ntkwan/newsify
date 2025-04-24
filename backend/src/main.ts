@@ -81,8 +81,8 @@ async function bootstrap() {
     }
 
     const config = new DocumentBuilder()
-        .setTitle('kafi-server')
-        .setDescription('The kafi server POS system API description')
+        .setTitle('newsify-server')
+        .setDescription('The newsify server API description')
         .setVersion('1.0')
         .addBearerAuth(
             {
