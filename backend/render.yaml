@@ -1,0 +1,37 @@
+services:
+    - type: web
+      name: kafi-server
+      env: docker
+      region: singapore
+      plan: starter
+      branch: main
+      dockerfilePath: ./Dockerfile
+      numInstances: 1
+      healthCheckPath: /
+      envVars:
+          - key: NODE_ENV
+            value: production
+          - key: DATABASE
+            sync: false # External PostgreSQL host
+          - key: DB_PORT
+            sync: false
+          - key: DB_USERNAME
+            sync: false
+          - key: DB_PASSWORD
+            sync: false
+          - key: DB_NAME
+            sync: false
+          - key: REDIS_HOST
+            sync: false # External Redis host
+          - key: REDIS_PORT
+            sync: false
+          - key: REDIS_USER
+            sync: false
+          - key: REDIS_PASSWORD
+            sync: false
+          - key: AT_SECRET
+            sync: false
+          - key: RT_SECRET
+            sync: false
+          - key: SERVER_PORT
+            value: 8080
