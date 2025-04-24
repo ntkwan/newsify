@@ -28,10 +28,32 @@ export default function Pagination({ totalPages }: PaginationProps) {
         );
         const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
+        // Điều chỉnh startPage nếu không đủ 5 trang
         if (endPage - startPage + 1 < maxVisiblePages) {
             startPage = Math.max(1, endPage - maxVisiblePages + 1);
         }
 
+        // Thêm trang đầu tiên
+        if (startPage > 1) {
+            pages.push(
+                <Link
+                    key={1}
+                    href={createPageURL(1)}
+                    className="px-3 py-1 rounded-md hover:bg-gray-100"
+                >
+                    1
+                </Link>,
+            );
+            if (startPage > 2) {
+                pages.push(
+                    <span key="start-ellipsis" className="px-2">
+                        ...
+                    </span>,
+                );
+            }
+        }
+
+        // Thêm các trang chính
         for (let i = startPage; i <= endPage; i++) {
             pages.push(
                 <Link
@@ -44,6 +66,26 @@ export default function Pagination({ totalPages }: PaginationProps) {
                     }`}
                 >
                     {i}
+                </Link>,
+            );
+        }
+
+        // Thêm trang cuối cùng
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(
+                    <span key="end-ellipsis" className="px-2">
+                        ...
+                    </span>,
+                );
+            }
+            pages.push(
+                <Link
+                    key={totalPages}
+                    href={createPageURL(totalPages)}
+                    className="px-3 py-1 rounded-md hover:bg-gray-100"
+                >
+                    {totalPages}
                 </Link>,
             );
         }
