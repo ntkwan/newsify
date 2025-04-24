@@ -9,6 +9,7 @@ import type { Multer } from 'multer';
 import OpenAI from 'openai';
 import { TranscriptLine } from './dtos/podcast-response.dto';
 import { File } from 'buffer';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ScriptSection {
     text: string;
@@ -19,6 +20,7 @@ interface ScriptSection {
 @Injectable()
 export class PodcastService {
     private openai: OpenAI;
+    private genAI: GoogleGenerativeAI;
 
     constructor(
         private readonly articlesService: ArticlesService,
@@ -31,10 +33,20 @@ export class PodcastService {
                 'OpenAI API key is not set. Some features may not work correctly.',
             );
         }
-
         this.openai = new OpenAI({
             apiKey: openaiApiKey,
         });
+
+        // Initialize Google Generative AI client
+        const geminiApiKey = this.configService.get<string>(
+            'GOOGLE_GEMINI_API_KEY',
+        );
+        if (!geminiApiKey) {
+            console.warn(
+                'Google Gemini API key is not set. Audio transcription features may not work correctly.',
+            );
+        }
+        this.genAI = new GoogleGenerativeAI(geminiApiKey || '');
     }
 
     async summarizeArticle(article: Article): Promise<string> {
@@ -71,9 +83,9 @@ export class PodcastService {
             return summary;
         } catch (error) {
             console.error('Error summarizing article with OpenAI:', error);
-            throw new InternalServerErrorException(
-                error instanceof Error ? error.message : String(error),
-            );
+            throw new InternalServerErrorException({
+                message: error instanceof Error ? error.message : String(error),
+            });
         }
     }
 
@@ -107,9 +119,9 @@ export class PodcastService {
                 'Error converting text to speech with OpenAI:',
                 error,
             );
-            throw new InternalServerErrorException(
-                error instanceof Error ? error.message : String(error),
-            );
+            throw new InternalServerErrorException({
+                message: error instanceof Error ? error.message : String(error),
+            });
         }
     }
 
@@ -118,61 +130,143 @@ export class PodcastService {
         timestampedTranscript: TranscriptLine[];
     }> {
         try {
-            const fileBuffer = await fs.promises.readFile(audioFilePath);
-
-            const audioFile = new File(
-                [fileBuffer],
-                path.basename(audioFilePath),
-                { type: 'audio/mpeg' },
+            const apiKey = this.configService.get<string>(
+                'GOOGLE_GEMINI_API_KEY',
             );
-
-            const transcription = await this.openai.audio.transcriptions.create(
-                {
-                    file: audioFile,
-                    model: this.configService.get<string>(
-                        'OPENAI_TRANSCRIPTION_MODEL',
-                    ),
-                    response_format: 'verbose_json',
-                    timestamp_granularities: ['segment'],
-                },
-            );
-
-            let fullTranscript = '';
-            const timestampedTranscript: TranscriptLine[] = [];
-
-            if ('segments' in transcription) {
-                transcription.segments.forEach((segment) => {
-                    fullTranscript += segment.text + ' ';
-
-                    timestampedTranscript.push({
-                        startTime: segment.start,
-                        endTime: segment.end,
-                        text: segment.text,
-                    });
-                });
-            } else {
-                fullTranscript = transcription.text;
-
-                timestampedTranscript.push({
-                    startTime: 0,
-                    endTime: 60,
-                    text: transcription.text,
-                });
+            if (!apiKey) {
+                throw new Error('Google Gemini API key is not configured');
             }
 
-            return {
-                fullTranscript: fullTranscript.trim(),
-                timestampedTranscript,
+            const fileBuffer = await fs.promises.readFile(audioFilePath);
+            const base64Audio = fileBuffer.toString('base64');
+
+            // Use Gemini API to transcribe audio
+            const model = this.genAI.getGenerativeModel({
+                model: this.configService.get<string>('GOOGLE_GEMINI_MODEL'),
+            });
+
+            console.log('Transcribing audio with Google Gemini...');
+
+            const prompt =
+                'Transcribe this audio with detailed timestamps. For each sentence, provide the start and end time in seconds.';
+
+            const audioContent = {
+                inlineData: {
+                    data: base64Audio,
+                    mimeType: 'audio/mpeg',
+                },
             };
+
+            const result = await model.generateContent([prompt, audioContent]);
+            const response = await result.response;
+            const responseText = response.text();
+
+            console.log('Gemini transcription complete, parsing response');
+
+            // Now use Gemini to generate the timestamped transcript from the text
+            const timestampPrompt = `
+The following is a transcript of an audio file.
+Create a detailed timestamped transcript with start and end times for each sentence.
+Format the output as valid JSON that matches this TypeScript type:
+{
+  fullTranscript: string; // The complete text
+  timestampedTranscript: Array<{
+    startTime: number; // Start time in seconds
+    endTime: number; // End time in seconds
+    text: string; // The text content of this segment
+  }>;
+}
+
+Here's the transcript:
+${responseText}
+`;
+
+            const timestampModel = this.genAI.getGenerativeModel({
+                model: this.configService.get<string>('GOOGLE_GEMINI_MODEL'),
+            });
+
+            const timestampResult =
+                await timestampModel.generateContent(timestampPrompt);
+            const timestampResponse = await timestampResult.response;
+            const jsonText = timestampResponse.text();
+
+            try {
+                const jsonMatch = jsonText.match(
+                    /```json\s*([\s\S]*?)\s*```/,
+                ) ||
+                    jsonText.match(/```\s*([\s\S]*?)\s*```/) || [
+                        null,
+                        jsonText,
+                    ];
+                const cleanJson = jsonMatch[1].trim();
+                const parsedData = JSON.parse(cleanJson);
+
+                return {
+                    fullTranscript: parsedData.fullTranscript,
+                    timestampedTranscript: parsedData.timestampedTranscript,
+                };
+            } catch (parseError) {
+                console.error('Error parsing transcript JSON:', parseError);
+                console.log('Raw JSON response:', jsonText);
+
+                // Fallback to simple text-based transcript
+                return this.generateSmartTimestamps(responseText);
+            }
         } catch (error) {
-            console.error(
-                'Error generating transcript with timestamps:',
-                error,
-            );
-            throw new InternalServerErrorException(
-                error instanceof Error ? error.message : String(error),
-            );
+            console.error('Error generating transcript with Gemini:', error);
+            throw new InternalServerErrorException({
+                message: error instanceof Error ? error.message : String(error),
+            });
         }
+    }
+
+    generateSmartTimestamps(text: string): {
+        fullTranscript: string;
+        timestampedTranscript: TranscriptLine[];
+    } {
+        const fullTranscript = text;
+        const timestampedTranscript: TranscriptLine[] = [];
+
+        // Split text into sentences
+        const sentences = text.split(/(?<=[.!?])\s+/);
+
+        // Constants for speech timing
+        const WORDS_PER_MINUTE = 150; // Average speaking rate
+        const MINUTES_PER_WORD = 1 / WORDS_PER_MINUTE;
+        const SECONDS_PER_WORD = MINUTES_PER_WORD * 60;
+        const PAUSE_AFTER_SENTENCE = 0.3; // Seconds of pause after each sentence
+
+        let currentTime = 0;
+
+        sentences.forEach((sentence) => {
+            if (!sentence.trim()) return;
+
+            // Count words for duration estimation
+            const wordCount = sentence.split(/\s+/).length;
+
+            // Calculate duration based on word count and complexity
+            let duration = wordCount * SECONDS_PER_WORD;
+
+            // Adjust for sentence complexity
+            if (sentence.length > 100) {
+                duration *= 1.1; // Longer sentences are spoken slightly slower
+            }
+            if (sentence.includes(',')) {
+                duration += 0.1 * (sentence.match(/,/g) || []).length; // Add time for commas (pauses)
+            }
+
+            // Add the sentence with calculated timestamps
+            timestampedTranscript.push({
+                startTime: parseFloat(currentTime.toFixed(2)),
+                endTime: parseFloat((currentTime + duration).toFixed(2)),
+                text: sentence.trim(),
+            });
+
+            // Update current time for next sentence
+            currentTime += duration + PAUSE_AFTER_SENTENCE;
+        });
+
+        return { fullTranscript, timestampedTranscript };
     }
 
     createEstimatedTranscriptTimestamps(scriptSections: ScriptSection[]): {
@@ -281,13 +375,13 @@ export class PodcastService {
             };
 
             try {
-                // Generate transcript with timestamps from the audio file
+                // Generate transcript with timestamps using Gemini
                 transcriptData =
                     await this.generateTranscriptWithTimestamps(audioFilePath);
-                console.log('Generated transcript with timestamps from audio');
+                console.log('Generated transcript with timestamps from Gemini');
             } catch (transcriptError) {
                 console.log(
-                    'Error generating transcript from audio, using estimated timestamps:',
+                    'Error generating transcript with Gemini, using estimated timestamps:',
                     transcriptError,
                 );
                 // Fallback to estimated transcript

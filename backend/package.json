@@ -35,6 +35,7 @@
         ]
     },
     "dependencies": {
+        "@google/generative-ai": "^0.24.0",
         "@nesjs/core": "^1.0.0",
         "@nestjs-modules/ioredis": "^2.0.2",
         "@nestjs-modules/mailer": "^2.0.2",
