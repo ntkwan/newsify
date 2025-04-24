@@ -2,6 +2,7 @@ import { Controller, Post, Query } from '@nestjs/common';
 import { PodcastService } from './podcast.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GeneratePodcastDto } from './dtos/generate-podcast.dto';
+import { PodcastResponseDto } from './dtos/podcast-response.dto';
 
 @ApiTags('podcast')
 @Controller('podcast')
@@ -14,14 +15,7 @@ export class PodcastController {
     @ApiResponse({
         status: 201,
         description: 'The podcast has been successfully generated',
-        schema: {
-            properties: {
-                url: {
-                    type: 'string',
-                    description: 'URL to the generated podcast audio file',
-                },
-            },
-        },
+        type: PodcastResponseDto,
     })
     @ApiResponse({ status: 400, description: 'Invalid input data' })
     @ApiResponse({
@@ -31,12 +25,10 @@ export class PodcastController {
     @Post()
     async generatePodcast(
         @Query() generatePodcastDto: GeneratePodcastDto,
-    ): Promise<{ url: string }> {
-        const podcastUrl = await this.podcastService.generatePodcast(
+    ): Promise<PodcastResponseDto> {
+        return this.podcastService.generatePodcast(
             generatePodcastDto.startTime,
             generatePodcastDto.endTime,
         );
-
-        return { url: podcastUrl };
     }
 }

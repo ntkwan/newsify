@@ -7,6 +7,14 @@ import * as path from 'path';
 import * as os from 'os';
 import type { Multer } from 'multer';
 import OpenAI from 'openai';
+import { TranscriptLine } from './dtos/podcast-response.dto';
+import { File } from 'buffer';
+
+interface ScriptSection {
+    text: string;
+    type: 'intro' | 'article' | 'outro';
+    articleTitle?: string;
+}
 
 @Injectable()
 export class PodcastService {
@@ -17,7 +25,6 @@ export class PodcastService {
         private readonly uploadService: UploadService,
         private readonly configService: ConfigService,
     ) {
-        // Initialize OpenAI with the API key from config
         const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
         if (!openaiApiKey) {
             console.warn(
@@ -64,7 +71,9 @@ export class PodcastService {
             return summary;
         } catch (error) {
             console.error('Error summarizing article with OpenAI:', error);
-            throw new InternalServerErrorException(error.message as Error);
+            throw new InternalServerErrorException(
+                error instanceof Error ? error.message : String(error),
+            );
         }
     }
 
@@ -98,11 +107,119 @@ export class PodcastService {
                 'Error converting text to speech with OpenAI:',
                 error,
             );
-            throw new InternalServerErrorException(error.message as Error);
+            throw new InternalServerErrorException(
+                error instanceof Error ? error.message : String(error),
+            );
         }
     }
 
-    async generatePodcast(startTime: string, endTime: string): Promise<string> {
+    async generateTranscriptWithTimestamps(audioFilePath: string): Promise<{
+        fullTranscript: string;
+        timestampedTranscript: TranscriptLine[];
+    }> {
+        try {
+            const fileBuffer = await fs.promises.readFile(audioFilePath);
+
+            const audioFile = new File(
+                [fileBuffer],
+                path.basename(audioFilePath),
+                { type: 'audio/mpeg' },
+            );
+
+            const transcription = await this.openai.audio.transcriptions.create(
+                {
+                    file: audioFile,
+                    model: this.configService.get<string>(
+                        'OPENAI_TRANSCRIPTION_MODEL',
+                    ),
+                    response_format: 'verbose_json',
+                    timestamp_granularities: ['segment'],
+                },
+            );
+
+            let fullTranscript = '';
+            const timestampedTranscript: TranscriptLine[] = [];
+
+            if ('segments' in transcription) {
+                transcription.segments.forEach((segment) => {
+                    fullTranscript += segment.text + ' ';
+
+                    timestampedTranscript.push({
+                        startTime: segment.start,
+                        endTime: segment.end,
+                        text: segment.text,
+                    });
+                });
+            } else {
+                fullTranscript = transcription.text;
+
+                timestampedTranscript.push({
+                    startTime: 0,
+                    endTime: 60,
+                    text: transcription.text,
+                });
+            }
+
+            return {
+                fullTranscript: fullTranscript.trim(),
+                timestampedTranscript,
+            };
+        } catch (error) {
+            console.error(
+                'Error generating transcript with timestamps:',
+                error,
+            );
+            throw new InternalServerErrorException(
+                error instanceof Error ? error.message : String(error),
+            );
+        }
+    }
+
+    createEstimatedTranscriptTimestamps(scriptSections: ScriptSection[]): {
+        fullTranscript: string;
+        timestampedTranscript: TranscriptLine[];
+    } {
+        const fullTranscript = scriptSections
+            .map((section) => section.text)
+            .join(' ');
+        const timestampedTranscript: TranscriptLine[] = [];
+
+        const WORDS_PER_MINUTE = 150;
+        const MINUTES_PER_WORD = 1 / WORDS_PER_MINUTE;
+        const SECONDS_PER_WORD = MINUTES_PER_WORD * 60;
+
+        let currentTime = 0;
+
+        scriptSections.forEach((section) => {
+            const sentences = section.text.split(/(?<=[.!?])\s+/);
+
+            sentences.forEach((sentence) => {
+                if (!sentence.trim()) return;
+
+                const wordCount = sentence.split(/\s+/).length;
+                const duration = wordCount * SECONDS_PER_WORD;
+
+                timestampedTranscript.push({
+                    startTime: currentTime,
+                    endTime: currentTime + duration,
+                    text: sentence.trim(),
+                });
+
+                currentTime += duration;
+            });
+        });
+
+        return { fullTranscript, timestampedTranscript };
+    }
+
+    async generatePodcast(
+        startTime: string,
+        endTime: string,
+    ): Promise<{
+        url: string;
+        transcript: string;
+        timestampedTranscript: TranscriptLine[];
+    }> {
         // Get articles within the date range
         const articles = await this.articlesService.getArticlesBetweenDates(
             startTime,
@@ -117,26 +234,65 @@ export class PodcastService {
 
         console.log(`Found ${articles.length} articles to include in podcast`);
 
-        let podcastScript =
-            "Welcome to Newsify Breaking News. Here are today's top stories.";
+        // Prepare script sections for better tracking and timestamps
+        const scriptSections: ScriptSection[] = [];
 
+        // Add intro
+        scriptSections.push({
+            text: "Welcome to Newsify Breaking News. Here are today's top stories.",
+            type: 'intro',
+        });
+
+        // Process each article
         for (const article of articles) {
             console.log(`Summarizing article: ${article.title}`);
             const summary = await this.summarizeArticle(article);
-            podcastScript += ' ' + summary + ' ';
+            scriptSections.push({
+                text: summary,
+                type: 'article',
+                articleTitle: article.title,
+            });
         }
 
         // Add outro
-        podcastScript +=
-            " That's all for today's breaking news. Thank you for listening to Newsify.";
+        scriptSections.push({
+            text: "That's all for today's breaking news. Thank you for listening to Newsify.",
+            type: 'outro',
+        });
+
+        const podcastScript = scriptSections
+            .map((section) => section.text)
+            .join(' ');
 
         console.log('Generated podcast script:', podcastScript);
         console.log('Converting to speech...');
+
+        const estimatedTranscript =
+            this.createEstimatedTranscriptTimestamps(scriptSections);
 
         const audioFilePath = await this.textToSpeech(podcastScript);
 
         try {
             console.log('Audio file generated, preparing for upload...');
+
+            let transcriptData: {
+                fullTranscript: string;
+                timestampedTranscript: TranscriptLine[];
+            };
+
+            try {
+                // Generate transcript with timestamps from the audio file
+                transcriptData =
+                    await this.generateTranscriptWithTimestamps(audioFilePath);
+                console.log('Generated transcript with timestamps from audio');
+            } catch (transcriptError) {
+                console.log(
+                    'Error generating transcript from audio, using estimated timestamps:',
+                    transcriptError,
+                );
+                // Fallback to estimated transcript
+                transcriptData = estimatedTranscript;
+            }
 
             const fileBuffer = await fs.promises.readFile(audioFilePath);
 
@@ -155,7 +311,11 @@ export class PodcastService {
 
             await fs.promises.unlink(audioFilePath);
 
-            return uploadedUrl;
+            return {
+                url: uploadedUrl,
+                transcript: transcriptData.fullTranscript,
+                timestampedTranscript: transcriptData.timestampedTranscript,
+            };
         } catch (error) {
             console.error('Error uploading podcast:', error);
             try {
