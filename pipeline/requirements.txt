@@ -1,3 +1,5 @@
 scrapy
 user-agent
 boto3
+python-dotenv
+apache-airflow
