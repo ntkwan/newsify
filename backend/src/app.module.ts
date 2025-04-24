@@ -10,6 +10,9 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { AuthModule } from './auth/auth.module';
 import { HttpModule } from '@nestjs/axios';
 import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
+import { ArticlesModule } from './articles/articles.module';
+import { PodcastModule } from './podcast/podcast.module';
+import { UploadModule } from './uploader/upload.module';
 
 @Module({
     imports: [
@@ -59,30 +62,40 @@ import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 
         SequelizeModule.forRootAsync({
             imports: [ConfigModule],
-            useFactory: (configService: ConfigService) => {
-                const isDevelopment =
-                    configService.get('ENV') === 'development';
-
-                return {
-                    dialect: 'postgres',
-                    host: configService.get('DATABASE'),
-                    port: configService.get('DB_PORT'),
-                    username: configService.get('DB_USERNAME'),
-                    password: configService.get('DB_PASSWORD'),
-                    database: configService.get('DB_NAME'),
-                    dialectModule: pg,
-                    autoLoadModels: true,
-                    synchronize: true,
-                    models: [User],
-                    dialectOptions: isDevelopment
-                        ? { ssl: { require: true, rejectUnauthorized: false } }
-                        : { ssl: false },
-                };
-            },
+            useFactory: (configService: ConfigService) => ({
+                dialect: 'postgres',
+                dialectModule: pg,
+                dialectOptions: {
+                    ssl: { require: true, rejectUnauthorized: false },
+                },
+                // Use the connection string instead of individual parameters
+                uri: configService.get('DATABASE_MIGRATION'),
+                autoLoadModels: true,
+                synchronize: true,
+                models: [User],
+                pool: {
+                    max: 20,
+                    min: 0,
+                    acquire: 30000,
+                    idle: 10000,
+                },
+                // Adding these options for better stability with pgBouncer
+                define: {
+                    timestamps: true,
+                    underscored: true,
+                },
+                logging:
+                    configService.get('ENV') === 'development'
+                        ? console.log
+                        : false,
+            }),
             inject: [ConfigService],
         }),
         AuthModule,
         UsersModule,
+        ArticlesModule,
+        PodcastModule,
+        UploadModule,
     ],
     controllers: [AppController],
     providers: [AppService],
