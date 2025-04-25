@@ -1,5 +1,6 @@
 scrapy
 user-agent
+scrapy-user-agents
 boto3
 python-dotenv
 apache-airflow
