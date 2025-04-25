@@ -84,7 +84,8 @@ class CNNSpider(scrapy.Spider):
             "Sign up here"
         ]
 
-        title = response.css("h1::text").get().strip()
+        # title = response.css("h1::text").get().strip()
+        title = response.css("h1.headline__text::text").get()
         elements = response.css(
             'div.article__content-container div.article__content'
         ).xpath('.//p | .//h2')
