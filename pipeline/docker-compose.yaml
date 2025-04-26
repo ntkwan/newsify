@@ -273,27 +273,92 @@ services:
       - -c
       - airflow
 
+  services:
+  spark-master:
+    container_name: spark-master
+    build: 
+      context: ./docker-setup/spark
+      dockerfile: Dockerfile 
+    image: spark-image
+    entrypoint: ['./entrypoint.sh', 'master']
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - ./etl:/opt/spark/work/etl
+      - ./data-processing:/opt/spark/work/data-processing
+      - spark-logs:/opt/spark/spark-events
+    environment:
+      UPSTREAM_DRIVERNAME: postgresql
+      UPSTREAM_HOST: postgres
+      UPSTREAM_PORT: '5432'
+      UPSTREAM_USERNAME: airflow
+      UPSTREAM_PASSWORD: airflow
+      UPSTREAM_DATABASE: airflow
+    env_file:
+      - .env.spark
+    ports:
+      - '3000:3000' # Spark master Web UI
+      - '7077:7077' # For spark-node-to-spark-node queries
+      - '4040:4040' # Spark worker data
+      - '8889:8889' # Optionaly 
+  spark-history-server:
+    container_name: spark-history
+    image: spark-image
+    entrypoint: ['./entrypoint.sh', 'history']
+    depends_on:
+      - spark-master
+    env_file:
+      - .env.spark
+    volumes:
+      - spark-logs:/opt/spark/spark-events
+    ports:
+      - '18080:18080'
+
+  spark-worker:
+    container_name: spark-worker
+    image: spark-image
+    entrypoint: ['./entrypoint.sh', 'worker']
+    depends_on:
+      - spark-master
+    env_file:
+      - .env.spark
+    volumes:
+      - ./etl:/opt/spark/work/etl
+      - ./data-processing:/opt/spark/work/data-processing
+      - spark-logs:/opt/spark/spark-events
+    environment:
+      UPSTREAM_DRIVERNAME: postgresql
+      UPSTREAM_HOST: postgres
+      UPSTREAM_PORT: '5432'
+      UPSTREAM_USERNAME: airflow
+      UPSTREAM_PASSWORD: airflow
+      UPSTREAM_DATABASE: airflow
+
   # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
   # or by explicitly targeted on the command line e.g. docker-compose up flower.
   # See: https://docs.docker.com/compose/profiles/
-  flower:
-    <<: *airflow-common
-    command: celery flower
-    profiles:
-      - flower
-    ports:
-      - "5555:5555"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
+  # flower:
+  #   <<: *airflow-common
+  #   command: celery flower
+  #   profiles:
+  #     - flower
+  #   ports:
+  #     - "5555:5555"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #   restart: always
+  #   depends_on:
+  #     <<: *airflow-common-depends-on
+  #     airflow-init:
+  #       condition: service_completed_successfully
 
 volumes:
   postgres-db-volume:
+  spark-logs:
