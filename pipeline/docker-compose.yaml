@@ -44,7 +44,6 @@
 #
 # Feel free to modify this file to suit your needs.
 ---
-# version: '3.9'
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
@@ -273,14 +272,13 @@ services:
       - -c
       - airflow
 
-  services:
   spark-master:
     container_name: spark-master
     build: 
       context: ./docker-setup/spark
-      dockerfile: Dockerfile 
-    image: spark-image
-    entrypoint: ['./entrypoint.sh', 'master']
+      dockerfile: ./docker-setup/spark/Dockerfile 
+    image: my-spark-delta
+    entrypoint: ['/entrypoint.sh', 'master']
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
       interval: 5s
@@ -291,14 +289,13 @@ services:
       - ./data-processing:/opt/spark/work/data-processing
       - spark-logs:/opt/spark/spark-events
     environment:
-      UPSTREAM_DRIVERNAME: postgresql
-      UPSTREAM_HOST: postgres
-      UPSTREAM_PORT: '5432'
-      UPSTREAM_USERNAME: airflow
-      UPSTREAM_PASSWORD: airflow
-      UPSTREAM_DATABASE: airflow
-    env_file:
-      - .env.spark
+      UPSTREAM_DRIVERNAME: ${UPSTREAM_DRIVERNAME}
+      UPSTREAM_HOST: ${UPSTREAM_HOST}
+      UPSTREAM_PORT: ${UPSTREAM_PORT}
+      UPSTREAM_USERNAME: ${UPSTREAM_USERNAME}
+      UPSTREAM_PASSWORD: ${UPSTREAM_PASSWORD}
+      UPSTREAM_DATABASE: ${UPSTREAM_DATABASE}
+    
     ports:
       - '3000:3000' # Spark master Web UI
       - '7077:7077' # For spark-node-to-spark-node queries
@@ -306,12 +303,10 @@ services:
       - '8889:8889' # Optionaly 
   spark-history-server:
     container_name: spark-history
-    image: spark-image
-    entrypoint: ['./entrypoint.sh', 'history']
+    image: my-spark-delta
+    entrypoint: ['/entrypoint.sh', 'history']
     depends_on:
       - spark-master
-    env_file:
-      - .env.spark
     volumes:
       - spark-logs:/opt/spark/spark-events
     ports:
@@ -319,23 +314,21 @@ services:
 
   spark-worker:
     container_name: spark-worker
-    image: spark-image
-    entrypoint: ['./entrypoint.sh', 'worker']
+    image: my-spark-delta
+    entrypoint: ['/entrypoint.sh', 'worker']
     depends_on:
       - spark-master
-    env_file:
-      - .env.spark
     volumes:
       - ./etl:/opt/spark/work/etl
       - ./data-processing:/opt/spark/work/data-processing
       - spark-logs:/opt/spark/spark-events
     environment:
-      UPSTREAM_DRIVERNAME: postgresql
-      UPSTREAM_HOST: postgres
-      UPSTREAM_PORT: '5432'
-      UPSTREAM_USERNAME: airflow
-      UPSTREAM_PASSWORD: airflow
-      UPSTREAM_DATABASE: airflow
+      UPSTREAM_DRIVERNAME: ${UPSTREAM_DRIVERNAME}
+      UPSTREAM_HOST: ${UPSTREAM_HOST}
+      UPSTREAM_PORT: ${UPSTREAM_PORT}
+      UPSTREAM_USERNAME: ${UPSTREAM_USERNAME}
+      UPSTREAM_PASSWORD: ${UPSTREAM_PASSWORD}
+      UPSTREAM_DATABASE: ${UPSTREAM_DATABASE}
 
   # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
   # or by explicitly targeted on the command line e.g. docker-compose up flower.
