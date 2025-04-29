@@ -1,6 +1,7 @@
 import scrapy
 from urllib.parse import urljoin
 from datetime import datetime
+
 class CNNSpider(scrapy.Spider):
     name = "cnn"
     allowed_domains = ["edition.cnn.com"]
