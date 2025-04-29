@@ -5,7 +5,7 @@ import {
     PaginatedArticlesResult,
 } from './articles.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { DateRangeDto } from './dtos/time-range.dto';
+import { DateRangeDto, DateRangePaginationDto } from './dtos/time-range.dto';
 import { PaginationDto } from './dtos/pagination.dto';
 import { PaginatedArticlesResponseDto } from './dtos/pagination-response.dto';
 
@@ -64,14 +64,13 @@ export class ArticlesController {
     })
     @Get('filter/paginated')
     async getArticlesByDateRangePaginated(
-        @Query() dateRange: DateRangeDto,
-        @Query() paginationDto: PaginationDto,
+        @Query() query: DateRangePaginationDto,
     ): Promise<PaginatedArticlesResult> {
         return this.articlesService.getArticlesBetweenDatesWithPagination(
-            dateRange.startTime,
-            dateRange.endTime,
-            paginationDto.page,
-            paginationDto.pageSize,
+            query.startTime,
+            query.endTime,
+            query.page,
+            query.pageSize,
         );
     }
 }

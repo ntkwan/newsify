@@ -33,7 +33,7 @@ export interface PaginatedArticlesResult {
 
 @Injectable()
 export class ArticlesService {
-    private readonly dataDir = path.join(process.cwd(), 'data');
+    private readonly dataDir = path.join(process.cwd(), '..', 'data');
 
     async getAllArticles(
         page: number = 1,
