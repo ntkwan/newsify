@@ -1,10 +1,9 @@
 import { Controller, Post, Query } from '@nestjs/common';
 import { PodcastService } from './podcast.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { GeneratePodcastDto } from './dtos/generate-podcast.dto';
 import { PodcastResponseDto } from './dtos/podcast-response.dto';
 
-@ApiTags('podcast')
 @Controller('podcast')
 export class PodcastController {
     constructor(private readonly podcastService: PodcastService) {}
