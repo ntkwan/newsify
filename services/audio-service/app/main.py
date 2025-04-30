@@ -5,7 +5,7 @@ import os
 from typing import List
 from dotenv import load_dotenv
 
-from .models import PodcastResponse, GeneratePodcastRequest, Article
+from .models import PodcastResponse, Article
 from .services.podcast_service import podcast_service
 from .services.article_service import article_service
 
@@ -30,7 +30,10 @@ async def root():
     return {"status": "ok", "service": "audio-service"}
 
 @app.post("/podcast", response_model=PodcastResponse, status_code=201)
-async def generate_podcast(request: GeneratePodcastRequest):
+async def generate_podcast(
+    startTime: str = Query(..., description="Start time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
+    endTime: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:mm:ss)")
+):
     """
     Generate a podcast from articles within a date range.
     
@@ -41,8 +44,8 @@ async def generate_podcast(request: GeneratePodcastRequest):
     """
     try:
         try:
-            datetime.fromisoformat(request.startTime.replace('Z', '+00:00'))
-            datetime.fromisoformat(request.endTime.replace('Z', '+00:00'))
+            datetime.fromisoformat(startTime.replace('Z', '+00:00'))
+            datetime.fromisoformat(endTime.replace('Z', '+00:00'))
         except ValueError:
             raise HTTPException(
                 status_code=400, 
@@ -50,8 +53,8 @@ async def generate_podcast(request: GeneratePodcastRequest):
             )
         
         result = await podcast_service.generate_podcast(
-            request.startTime,
-            request.endTime
+            startTime,
+            endTime
         )
         
         return result

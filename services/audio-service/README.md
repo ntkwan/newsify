@@ -76,16 +76,12 @@ docker-compose up
 ### Generate Podcast
 
 ```
-POST /podcast
+POST /podcast?startTime=2025-04-18T00:00:00&endTime=2025-04-19T00:00:00
 ```
 
-Request body:
-```json
-{
-  "startTime": "2025-04-18T00:00:00",
-  "endTime": "2025-04-19T00:00:00"
-}
-```
+Query Parameters:
+- `startTime`: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
+- `endTime`: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
 
 Response:
 ```json

@@ -305,8 +305,7 @@ Here's the transcript:
                 )
             )
         
-        # Add outro
-            script_sections.append(
+        script_sections.append(
             ScriptSection(
                 text="That's all for today's breaking news. Thank you for listening to Newsify.",
                 type="outro"
