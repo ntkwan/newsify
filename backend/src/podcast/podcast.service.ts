@@ -8,7 +8,6 @@ import * as os from 'os';
 import type { Multer } from 'multer';
 import OpenAI from 'openai';
 import { TranscriptLine } from './dtos/podcast-response.dto';
-import { File } from 'buffer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ScriptSection {
@@ -158,7 +157,7 @@ export class PodcastService {
             };
 
             const result = await model.generateContent([prompt, audioContent]);
-            const response = await result.response;
+            const response = result.response;
             const responseText = response.text();
 
             console.log('Gemini transcription complete, parsing response');
@@ -187,7 +186,7 @@ ${responseText}
 
             const timestampResult =
                 await timestampModel.generateContent(timestampPrompt);
-            const timestampResponse = await timestampResult.response;
+            const timestampResponse = timestampResult.response;
             const jsonText = timestampResponse.text();
 
             try {
