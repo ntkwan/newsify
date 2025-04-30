@@ -1,0 +1,196 @@
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import pandas as pd
+import numpy as np
+from serpapi.google_search import GoogleSearch
+from typing import List, Optional, Dict, Any
+import os
+from datetime import datetime
+from pydantic import BaseModel
+from dotenv import load_dotenv
+import json
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+
+load_dotenv()
+
+app = FastAPI(
+    title="Trending News API",
+    description="API for trending news analysis and scoring",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+class TrendingKeyword(BaseModel):
+    query: str
+    value: str
+    extracted_value: int
+    link: str
+    serpapi_link: str
+
+class TrendingArticle(BaseModel):
+    url: str
+    title: str
+    content: str
+    trend: Optional[str] = None
+    similarity_score: float
+
+class ArticleAnalysisRequest(BaseModel):
+    content: str
+    title: Optional[str] = None
+    url: Optional[str] = None
+
+class ArticleBatchRequest(BaseModel):
+    articles: List[ArticleAnalysisRequest]
+
+def get_embedding(text: str):
+    return model.encode(text)
+
+def get_trending_keywords(country_code: str = "US", limit: int = 10):
+    api_key = os.getenv("SERPAPI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="API key not configured")
+    
+    params = {
+        "engine": "google_trends_trending_now",
+        "geo": country_code,
+        "api_key": api_key
+    }
+    
+    try:
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        trending_searches = results.get("trending_searches", [])
+        
+        df = pd.DataFrame(trending_searches, index=None)
+        df = df[df['active'] == True]
+        
+        return df['query'].head(limit).tolist()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching trending keywords: {str(e)}")
+
+def get_related_queries(keywords: List[str]):
+    api_key = os.getenv("SERPAPI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="API key not configured")
+    
+    rows = []
+    for word in keywords:
+        params = {
+            "engine": "google_trends",
+            "q": word,
+            "data_type": "RELATED_QUERIES",
+            "date": "now 1-d",
+            "api_key": api_key
+        }
+        
+        try:
+            word_search = GoogleSearch(params)
+            word_results = word_search.get_dict()
+            related_word_queries = word_results.get("related_queries", {})
+            
+            # Process rising queries
+            for item in related_word_queries.get('rising', []):
+                rows.append({
+                    'query': item.get('query'),
+                    'value': item.get('value'),
+                    'extracted_value': item.get('extracted_value'),
+                    'link': item.get('link'),
+                    'serpapi_link': item.get('serpapi_link')
+                })
+            
+            for item in related_word_queries.get('top', []):
+                rows.append({
+                    'query': item.get('query'),
+                    'value': item.get('value'),
+                    'extracted_value': item.get('extracted_value'),
+                    'link': item.get('link'),
+                    'serpapi_link': item.get('serpapi_link')
+                })
+        except Exception as e:
+            print(f"Error processing keyword {word}: {str(e)}")
+    
+    return rows
+
+def analyze_article_trending(article_content: str, trends_data: List[Dict[str, Any]], threshold: float = 0.5):
+    article_embedding = get_embedding(article_content)
+    trends_embeddings = np.stack([get_embedding(trend['query']) for trend in trends_data])
+    
+    similarity_scores = cosine_similarity([article_embedding], trends_embeddings)[0]
+    max_score = np.max(similarity_scores)
+    max_idx = np.argmax(similarity_scores)
+    
+    result = {
+        "similarity_score": float(max_score),
+        "trend": None
+    }
+    
+    if max_score >= threshold:
+        result["trend"] = trends_data[max_idx]['query']
+    
+    return result
+
+@app.get("/")
+async def root():
+    return {"message": "ok"}
+
+@app.get("/trending", response_model=List[str])
+async def get_trending(country: str = Query("US", description="Country code for trending data")):
+    """Get current trending topics from Google Trends"""
+    return get_trending_keywords(country_code=country)
+
+@app.get("/trending/related", response_model=List[TrendingKeyword])
+async def get_trending_related(country: str = Query("US", description="Country code for trending data")):
+    """Get related queries for trending topics"""
+    keywords = get_trending_keywords(country_code=country)
+    return get_related_queries(keywords)
+
+@app.post("/analyze", response_model=TrendingArticle)
+async def analyze_article(article: ArticleAnalysisRequest):
+    """Analyze a single article for trending relevance"""
+    trends_data = get_related_queries(get_trending_keywords())
+    
+    analysis = analyze_article_trending(article.content, trends_data)
+    
+    return {
+        "url": article.url or "",
+        "title": article.title or "",
+        "content": article.content,
+        "trend": analysis["trend"],
+        "similarity_score": analysis["similarity_score"]
+    }
+
+@app.post("/analyze/batch", response_model=List[TrendingArticle])
+async def analyze_articles_batch(request: ArticleBatchRequest):
+    """Analyze multiple articles for trending relevance"""
+    if not request.articles:
+        return []
+    
+    trends_data = get_related_queries(get_trending_keywords())
+    
+    results = []
+    for article in request.articles:
+        analysis = analyze_article_trending(article.content, trends_data)
+        results.append({
+            "url": article.url or "",
+            "title": article.title or "",
+            "content": article.content,
+            "trend": analysis["trend"],
+            "similarity_score": analysis["similarity_score"]
+        })
+    
+    return results
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
