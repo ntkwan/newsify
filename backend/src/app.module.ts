@@ -11,9 +11,6 @@ import { AuthModule } from './auth/auth.module';
 import { HttpModule } from '@nestjs/axios';
 import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { ArticlesModule } from './articles/articles.module';
-import { PodcastModule } from './podcast/podcast.module';
-import { UploadModule } from './uploader/upload.module';
-
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -68,7 +65,6 @@ import { UploadModule } from './uploader/upload.module';
                 dialectOptions: {
                     ssl: { require: true, rejectUnauthorized: false },
                 },
-                // Use the connection string instead of individual parameters
                 uri: configService.get('DATABASE_MIGRATION'),
                 autoLoadModels: true,
                 synchronize: true,
@@ -79,7 +75,6 @@ import { UploadModule } from './uploader/upload.module';
                     acquire: 30000,
                     idle: 10000,
                 },
-                // Adding these options for better stability with pgBouncer
                 define: {
                     timestamps: true,
                     underscored: true,
@@ -94,8 +89,6 @@ import { UploadModule } from './uploader/upload.module';
         AuthModule,
         UsersModule,
         ArticlesModule,
-        PodcastModule,
-        UploadModule,
     ],
     controllers: [AppController],
     providers: [AppService],
