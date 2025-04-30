@@ -290,6 +290,7 @@ services:
       - C:/Users/User/Desktop/newsify/pipeline/dags/data-processing:/opt/spark/work-dir
       - ./etl:/opt/spark/work-dir/etl
       - spark-logs:/opt/spark/spark-events
+      - ./.env:/opt/spark/work-dir/.env
     environment:
       UPSTREAM_DRIVERNAME: postgresql
       UPSTREAM_HOST: postgres
@@ -297,6 +298,9 @@ services:
       UPSTREAM_USERNAME: airflow
       UPSTREAM_PASSWORD: airflow
       UPSTREAM_DATABASE: airflow
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
 
   spark-history-server:
     container_name: spark-history
@@ -330,6 +334,9 @@ services:
       UPSTREAM_USERNAME: airflow
       UPSTREAM_PASSWORD: airflow
       UPSTREAM_DATABASE: airflow
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
 
   # spark-master:
   #   container_name: spark-master

@@ -79,7 +79,7 @@
 # --- Stage 1: Builder ---
 FROM openjdk:11-jdk-slim AS builder
 
-ARG SPARK_VERSION=3.5.5
+ARG SPARK_VERSION=3.4.4
 ARG HADOOP_VERSION=3
 ENV SPARK_HOME=/opt/spark
 
@@ -93,7 +93,7 @@ apt-get install -y --no-install-recommends \
     rsync \
     openjdk-11-jdk \
     build-essential \
-    ssh && \
+    ssh  && \
 apt-get clean && \
 rm -rf /var/lib/apt/lists/*
 
@@ -104,9 +104,9 @@ RUN curl -fsSL https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPA
 
 # Tải các JAR cần thiết cho Delta Lake và S3
 RUN mkdir -p ${SPARK_HOME}/jars && \
-    curl -fsSL https://repo1.maven.org/maven2/io/delta/delta-spark_2.13/3.3.0/delta-spark_2.13-3.3.0.jar -o ${SPARK_HOME}/jars/delta-spark_2.13-3.3.0.jar && \
+    curl -fsSL https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.3.0/delta-spark_2.12-3.3.0.jar -o ${SPARK_HOME}/jars/delta-spark_2.12-3.3.0.jar && \
     curl -fsSL https://repo1.maven.org/maven2/io/delta/delta-storage/3.3.0/delta-storage-3.3.0.jar -o ${SPARK_HOME}/jars/delta-storage-3.3.0.jar && \
-    curl -fsSL https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar -o ${SPARK_HOME}/jars/hadoop-aws-3.4.1.jar && \
+    curl -fsSL https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -o ${SPARK_HOME}/jars/hadoop-aws-3.3.4.jar && \
     curl -fsSL https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.721/aws-java-sdk-bundle-1.12.721.jar -o ${SPARK_HOME}/jars/aws-java-sdk-bundle-1.12.721.jar 
 
 # --- Stage 2: Final Image ---
@@ -149,10 +149,11 @@ RUN apt-get update && apt-get install -y openssh-server && \
 # Sao chép Spark từ builder
 COPY --from=builder /opt/spark /opt/spark
 
+#RUN find ${SPARK_HOME}/jars -name "*aws*" -not -name "*aws-java-sdk-bundle*" -delete
+
 # Cài đặt các gói Python cần thiết
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
 
 # Tạo thư mục làm việc và logs cho Spark
 RUN mkdir -p /opt/spark/work-dir /opt/spark/logs && \
