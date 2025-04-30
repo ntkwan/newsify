@@ -121,7 +121,7 @@ class CNNSpider(scrapy.Spider):
         category_array = category.split(" > ")
         
         yield {
-            "url": response.url,
+            "url": response.url or "No URL",
             "src": "edition.cnn.com",
             "language": "english",
             "categories": category_array,

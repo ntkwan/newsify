@@ -2,7 +2,7 @@
 service ssh start
 
 ssh-keyscan -H spark-master >> ~/.ssh/known_hosts
-ssh-keyscan -H 172.18.0.3 >> ~/.ssh/known_hosts
+ssh-keyscan -H spark-worker >> ~/.ssh/known_hosts
 
 chmod 644 /root/.ssh/known_hosts
 
