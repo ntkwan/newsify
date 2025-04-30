@@ -2,9 +2,9 @@ name: Lint
 
 on:
     push:
-        branches: ['main', 'quan/feature/be/ci-pipeline']
+        branches: ['main', 'dev']
     pull_request:
-        branches: ['main']
+        branches: ['main', 'dev']
         paths-ignore:
             - 'README.md'
             - 'LICENSE'
