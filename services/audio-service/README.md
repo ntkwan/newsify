@@ -46,6 +46,9 @@ DO_SPACES_ACCESS_KEY=your_spaces_access_key
 DO_SPACES_SECRET_KEY=your_spaces_secret_key
 DO_SPACES_BUCKET=your_spaces_bucket
 
+# Local data path
+DATA_PATH=
+
 ```
 
 ## Running the Service

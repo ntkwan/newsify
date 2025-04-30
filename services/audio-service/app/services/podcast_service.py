@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from typing import List, Dict, Any, Tuple
 import openai
 import google.generativeai as genai
+from datetime import datetime
 from ..models import Article, TranscriptLine, ScriptSection
 from .upload_service import upload_service
 from .article_service import article_service

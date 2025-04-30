@@ -5,8 +5,9 @@ import os
 from typing import List
 from dotenv import load_dotenv
 
-from .models import PodcastResponse, GeneratePodcastRequest
+from .models import PodcastResponse, GeneratePodcastRequest, Article
 from .services.podcast_service import podcast_service
+from .services.article_service import article_service
 
 load_dotenv()
 
@@ -39,7 +40,6 @@ async def generate_podcast(request: GeneratePodcastRequest):
     Returns the URL to the generated podcast, full transcript, and timestamped transcript.
     """
     try:
-        # Validate date format
         try:
             datetime.fromisoformat(request.startTime.replace('Z', '+00:00'))
             datetime.fromisoformat(request.endTime.replace('Z', '+00:00'))
