@@ -1,0 +1,51 @@
+name: Lint
+
+on:
+    push:
+        branches: ['main', 'quan/feature/be/ci-pipeline']
+    pull_request:
+        branches: ['main']
+        paths-ignore:
+            - 'README.md'
+            - 'LICENSE'
+
+jobs:
+    server-linting:
+        runs-on: ubuntu-22.04
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v2
+              with:
+                  node-version: '22'
+
+            - name: Install dependencies (server)
+              run: cd backend && pnpm install
+
+            - name: Run ESLint (server)
+              run: cd backend && pnpm lint
+
+    client-linting:
+        runs-on: ubuntu-22.04
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v2
+              with:
+                  node-version: '22'
+
+            - name: Install dependencies (client)
+              run: cd frontend && pnpm install
+
+            - name: Run ESLint (client)
+              run: cd frontend && pnpm run lint
