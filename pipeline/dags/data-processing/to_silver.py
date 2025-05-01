@@ -4,7 +4,7 @@ import os
 import re
 from delta.tables import DeltaTable
 from pyspark.sql.types import *
-from pyspark.sql.functions import (regexp_replace, col, lower, to_timestamp, unix_timestamp, date_format, 
+from pyspark.sql.functions import (expr, regexp_replace, col, lower, to_timestamp, unix_timestamp, date_format, 
 trim, broadcast, from_utc_timestamp, hour, minute, dayofmonth, month, year, lit, current_timestamp, when, current_date, to_json, struct)
 import findspark
 findspark.init()
@@ -194,7 +194,7 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         .withColumn("month_number", when(col("publish_date").isNotNull(), month(col("publish_date")))) \
         .withColumn("year", when(col("publish_date").isNotNull(), year(col("publish_date")))) \
         .withColumn("weekday", when(col("publish_date").isNotNull(), date_format(col("publish_date"), "EEEE"))) \
-        .drop("cleaned_publish_date","timestamp_attempt1", "timestamp_attempt2", "timestamp_attempt3", "timestamp_attempt4", "timestamp_5")
+        .drop("cleaned_publish_date","timestamp_1", "timestamp_2", "timestamp_3", "timestamp_4", "timestamp_5")
     
     return df
 
