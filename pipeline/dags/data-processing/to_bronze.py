@@ -26,7 +26,6 @@ def create_spark_session():
     .getOrCreate()
     return spark
 
-# Định nghĩa schema mặc định nếu bảng Delta chưa tồn tại
 schema_json = {
     "type": "struct",
     "fields": [
@@ -47,7 +46,8 @@ schema_json = {
         {"name": "year", "type": "integer", "nullable": True, "metadata": {}},
         {"name": "weekday", "type": "string", "nullable": True, "metadata": {}},
         {"name": "time_reading", "type": "string", "nullable": True, "metadata": {}},
-        {"name": "author", "type": "string", "nullable": True, "metadata": {}}
+        {"name": "author", "type": "string", "nullable": True, "metadata": {}},
+        {"name": "categories", "type": {"type": "array", "elementType": "string", "containsNull": True}, "nullable": True, "metadata": {}}
     ]
 }
 
@@ -60,15 +60,9 @@ default_schema = StructType.fromJson(schema_json) \
     ))
 
 def define_schema():
-    """
-    Trả về schema mặc định.
-    """
     return default_schema
 
 def get_delta_schema(spark: SparkSession, s3_output_path: str):
-    """
-    Lấy schema từ bảng Delta hiện tại, hoặc trả về schema mặc định nếu bảng không tồn tại.
-    """
     try:
         if DeltaTable.isDeltaTable(spark, s3_output_path):
             delta_table = DeltaTable.forPath(spark, s3_output_path)
@@ -80,9 +74,6 @@ def get_delta_schema(spark: SparkSession, s3_output_path: str):
         return default_schema
 
 def read_json(spark: SparkSession, s3_input_path: str, schema: StructType):
-    """
-    Đọc dữ liệu JSON từ S3 với schema rõ ràng và xử lý bản ghi lỗi.
-    """
     try:
         return spark.read \
             .option("multiline", "true") \
@@ -97,7 +88,6 @@ def read_json(spark: SparkSession, s3_input_path: str, schema: StructType):
 
 def save_to_bronze(df, s3_output_path: str):
     try:
-        # Ép kiểu cột 'day' để khớp với schema của bảng Delta
         if "day" in df.columns:
             df = df.withColumn("day", col("day").cast("integer"))
         df = df.cache()
@@ -107,7 +97,6 @@ def save_to_bronze(df, s3_output_path: str):
             .save(s3_output_path)
         print(f"Successfully saved data to bronze layer: {s3_output_path}")
         
-        # Ghi log bản ghi lỗi (nếu có)
         error_df = df.filter(col("_corrupt").isNotNull())
         if not error_df.isEmpty():
             error_df.write.format("delta") \

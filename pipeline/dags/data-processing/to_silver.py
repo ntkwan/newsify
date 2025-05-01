@@ -4,10 +4,14 @@ import os
 import re
 from delta.tables import DeltaTable
 from pyspark.sql.types import *
-from pyspark.sql.functions import (expr, regexp_replace, col, lower, to_timestamp, unix_timestamp, date_format, 
+from pyspark.sql.window import Window
+from pyspark.sql.functions import (coalesce, row_number, udf, expr, regexp_replace, col, lower, to_timestamp, unix_timestamp, date_format, 
 trim, broadcast, from_utc_timestamp, hour, minute, dayofmonth, month, year, lit, current_timestamp, when, current_date, to_json, struct)
-import findspark
-findspark.init()
+from dateutil import parser
+import pytz
+from rapidfuzz import fuzz
+# import findspark
+# findspark.init()
 
 def create_spark_session():
     load_dotenv()
@@ -23,7 +27,7 @@ def create_spark_session():
     .config("spark.hadoop.fs.s3a.endpoint", "s3.amazonaws.com") \
     .config("spark.sql.legacy.timeParserPolicy", "LEGACY") \
     .getOrCreate()
-        
+    spark.catalog.clearCache()
     return spark
 
 def define_schema():
@@ -46,21 +50,12 @@ def define_schema():
         StructField("weekday", StringType(), True),
         StructField("time_reading", StringType(), True),
         StructField("author", StringType(), True), 
+        StructField("categories", ArrayType(StringType()), nullable=True),
         StructField("_corrupt", StringType(), True),
-        StructField("ingest_time", TimestampType(), True)
+        StructField("ingest_time", TimestampType(), True),
+        StructField("processed_date", TimestampType(), True),
+        StructField("main_category", StringType(), True)
     ])
-
-# def read_data_silver(spark, s3_input_path, schema):
-#     try:
-#         if DeltaTable.isDeltaTable(spark, s3_input_path):
-#             delta_table = DeltaTable.forPath(spark, s3_input_path)
-#             return delta_table.toDF()
-#         else:
-#             schema = define_schema()
-#             return spark.read.schema(schema).parquet(s3_input_path)
-#     except Exception as e:
-#         print(f"Error reading data from bronze: {str(e)}")
-#         raise
 
 def read_data_bronze(spark, s3_input_path) -> DataFrame:
     try:
@@ -83,20 +78,151 @@ def read_data_bronze(spark, s3_input_path) -> DataFrame:
             return spark.read.schema(schema).parquet(s3_input_path)
     except Exception as e:
         print(f"Error reading data from bronze: {str(e)}")
-        raise
-                
-def clean_data(news_df: DataFrame) -> DataFrame:
+        raise              
+
+def parse_to_utc(publish_date_str):
+    try:
+        dt = parser.parse(publish_date_str)
+        return dt.astimezone(pytz.utc)
+    except:
+        return None
+    
+def parse_to_utc(publish_date_str):
+    if not publish_date_str:
+        return None
+    try:
+        tzinfos = {
+            "ET": pytz.timezone("America/New_York"),
+            "EST": pytz.FixedOffset(-5 * 60),
+            "EDT": pytz.FixedOffset(-4 * 60),
+            "CST": pytz.FixedOffset(-6 * 60),
+            "CDT": pytz.FixedOffset(-5 * 60),
+            "MST": pytz.FixedOffset(-7 * 60),
+            "MDT": pytz.FixedOffset(-6 * 60),
+            "PST": pytz.FixedOffset(-8 * 60),
+            "PDT": pytz.FixedOffset(-7 * 60),
+            "UTC": pytz.UTC
+        }
+        dt = parser.parse(publish_date_str, fuzzy=True, tzinfos=tzinfos)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=pytz.UTC)
+        return dt.astimezone(pytz.UTC)
+    except:
+        return None
+
+parse_to_utc_udf = udf(parse_to_utc, TimestampType())
+
+def process_publish_date(df: DataFrame) -> DataFrame:
+    # Clean publish_date by removing "Updated" or "Published" and extra spaces
+    df = df.withColumn(
+        "publish_date",
+        when(col("publish_date") == "No publish date", None)
+        .otherwise(col("publish_date"))
+    )
+    
+    df = df.withColumn(
+        "cleaned_publish_date",
+        when(col("publish_date").isNotNull(),
+            trim(regexp_replace(
+                regexp_replace(col("publish_date"), r"(?i)^\s*(Updated|Published)\s+", ""),
+                r"\s+", " "
+            ))
+        )
+    )
+    
+    # Log sample data before parsing
+    print("Sample publish_date and cleaned_publish_date:")
+    df.select("publish_date", "cleaned_publish_date").show(5, truncate=False)
+    
+    # Define common date formats
+    date_formats = [
+        "h:mm a z, EEE MMMM dd, yyyy",  # e.g., 7:03 AM EST, Thu January 16, 2025
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "EEE, dd MMM yyyy HH:mm:ss Z",
+        "dd MMM yyyy HH:mm",
+        "yyyy-MM-dd",
+        "MMM dd, yyyy HH:mm",
+        "dd/MM/yyyy HH:mm",
+        "yyyy/MM/dd HH:mm"
+    ]
+    
+    # Try parsing with multiple formats
+    df = df.withColumn(
+        "publish_date_utc",
+        when(col("cleaned_publish_date").isNotNull(),
+             coalesce(*[
+                 to_timestamp(col("cleaned_publish_date"), fmt)
+                 for fmt in date_formats
+             ])
+        )
+    )
+    
+    # Fallback to dateutil.parser for non-standard formats
+    df = df.withColumn(
+        "publish_date_utc",
+        when(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull(),
+             parse_to_utc_udf(col("cleaned_publish_date"))
+        ).otherwise(col("publish_date_utc"))
+    )
+    
+    # Ensure UTC timezone (UTC±00:00)
+    df = df.withColumn(
+        "publish_date_utc",
+        when(col("publish_date_utc").isNotNull(),
+             from_utc_timestamp(col("publish_date_utc"), "UTC"))
+    )
+    
+    # Log sample data after parsing
+    print("Sample cleaned_publish_date and publish_date_utc:")
+    df.select("cleaned_publish_date", "publish_date_utc").show(5, truncate=False)
+    
+    # Extract time components
+    df = df \
+        .withColumn("time", when(col("publish_date_utc").isNotNull(), date_format(col("publish_date_utc"), "HH:mm"))) \
+        .withColumn("timezone", lit("UTC")) \
+        .withColumn("hour", when(col("publish_date_utc").isNotNull(), hour(col("publish_date_utc")))) \
+        .withColumn("minute", when(col("publish_date_utc").isNotNull(), minute(col("publish_date_utc")))) \
+        .withColumn("day", when(col("publish_date_utc").isNotNull(), dayofmonth(col("publish_date_utc")))) \
+        .withColumn("month", when(col("publish_date_utc").isNotNull(), date_format(col("publish_date_utc"), "MMMM"))) \
+        .withColumn("month_number", when(col("publish_date_utc").isNotNull(), month(col("publish_date_utc")))) \
+        .withColumn("year", when(col("publish_date_utc").isNotNull(), year(col("publish_date_utc")))) \
+        .withColumn("weekday", when(col("publish_date_utc").isNotNull(), date_format(col("publish_date_utc"), "EEEE")))
+        
+    return df
+
+def fuzzy_match_categories(cat_list, category_map, threshold=70):
+    if not cat_list:
+        return "Other"
+
+    best_match = None
+    max_score = 0
+
+    for raw_cat in cat_list:
+        if not raw_cat:
+            continue
+        for unified_cat, keywords in category_map.items():
+            for keyword in keywords:
+                score = fuzz.partial_ratio(raw_cat.lower(), keyword.lower())
+                if score > max_score:
+                    max_score = score
+                    best_match = unified_cat
+
+    return best_match if max_score >= threshold else "Other"
+
+def clean_data(news_df: DataFrame, category_map) -> DataFrame:
     df = news_df.cache()
-    # remove duplicates in the new data
-    df = news_df.dropDuplicates(["src", "url"])
-     
+    # Remove duplicates in the new data
+    df = df.dropDuplicates(["src", "url"])
+    
+    # Clean title and content
     df = df \
         .withColumn("title", trim(regexp_replace(col("title"), r"\s+", " "))) \
         .withColumn("content", trim(regexp_replace(col("content"), r"\s+", " "))) \
         .withColumn("title", regexp_replace(col("title"), '[\\"\']', '')) \
         .withColumn("content", regexp_replace(col("content"), '[\\"\']', ''))
     
-    # Lọc bản ghi hợp lệ
+    # Filter valid records (must have title and content)
     valid_df = df.filter(
         (col("url").isNotNull()) &
         (col("src").isNotNull()) &
@@ -109,6 +235,7 @@ def clean_data(news_df: DataFrame) -> DataFrame:
         (col("day").isNull() | col("day").cast("integer").isNotNull())
     )
     
+    # Collect error records (including those missing title or content)
     error_df = df.filter(~(
         (col("url").isNotNull()) &
         (col("src").isNotNull()) &
@@ -121,90 +248,36 @@ def clean_data(news_df: DataFrame) -> DataFrame:
         (col("day").isNull() | col("day").cast("integer").isNotNull())
     ))
     
+    # Log sample invalid records for debugging
+    print("Sample invalid records (error_df):")
+    error_df.select("url", "src", "title", "content").show(5, truncate=False)
+    
+    # Apply fuzzy matching for categories on valid records
+    fuzzy_array_udf = udf(lambda x: fuzzy_match_categories(x, category_map), StringType())
+    valid_df = valid_df.withColumn("main_category", fuzzy_array_udf(col("categories")))
+    
     df.unpersist()
     
-    return valid_df, error_df                 
+    return valid_df, error_df
 
-def process_publish_date(df: DataFrame) -> DataFrame:
-    df.withColumn(
-        "publish_date", 
-        when(col("publish_date") == "No publish date", None)
-        .otherwise(col("publish_date"))
-    )
-    
-    df = df.withColumn(
-        "cleaned_publish_date",
-        when(col("publish_date").isNotNull(),
-            trim(regexp_replace(
-                regexp_replace(col("publish_date"), r"(?i)(Updated|Published)\s*", ""),
-                r"\s+", " "
-            ))
-        )
-    )
-    
-    # h:mm a z, EEE MMMM d, yyyy
-    df = df.withColumn(
-        "timestamp_1",
-        when(col("cleaned_publish_date").isNotNull(),
-            to_timestamp(col("cleaned_publish_date"), "h:mm a z, EEE MMMM d, yyyy")
-        )
-    )    
-    
-     # h:mm a z, MMMM d, yyyy
-    df = df.withColumn(
-        "timestamp_2",
-        
-        when(col("timestamp_1").isNull() & col("cleaned_publish_date").isNotNull(),
-            to_timestamp(col("cleaned_publish_date"), "h:mm a z, MMMM d, yyyy"))
-        .otherwise(col("timestamp_1"))
-    )
-    
-    # MMMM d, yyyy h:mm a z
-    df = df.withColumn(
-        "timestamp_3",
-        when(col("timestamp_2").isNull() & col("cleaned_publish_date").isNotNull(),
-            to_timestamp(col("cleaned_publish_date"), "MMMM d, yyyy h:mm a z"))
-        .otherwise(col("timestamp_2"))
-    )
-
-     # ISO - yyyy-MM-dd'T'HH:mm:ss.SSS'Z
-    df = df.withColumn(
-        "timestamp_4",
-        when(col("timestamp_3").isNull() & col("cleaned_publish_date").isNotNull(),
-            to_timestamp(col("cleaned_publish_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z"))
-        .otherwise(col("timestamp_2"))
-    )
-    
-    # yyyy-MM-dd HH:mm:ss
-    df = df.withColumn(
-        "timestamp_5",
-        when(col("timestamp_4").isNull() & col("cleaned_publish_date").isNotNull(),
-            to_timestamp(col("cleaned_publish_date"), "yyyy-MM-dd HH:mm:ss"))
-        .otherwise(col("timestamp_4"))
-    )
-    
-    df = df \
-        .withColumn("publish_date", col("timestamp_5")) \
-        .withColumn("time", when(col("publish_date").isNotNull(), date_format(col("publish_date"), "HH:mm"))) \
-        .withColumn("timezone", lit("Asia/Ho_Chi_Minh")) \
-        .withColumn("hour", when(col("publish_date").isNotNull(), hour(col("publish_date")))) \
-        .withColumn("minute", when(col("publish_date").isNotNull(), minute(col("publish_date")))) \
-        .withColumn("day", when(col("publish_date").isNotNull(), dayofmonth(col("publish_date")))) \
-        .withColumn("month", when(col("publish_date").isNotNull(), date_format(col("publish_date"), "MMMM"))) \
-        .withColumn("month_number", when(col("publish_date").isNotNull(), month(col("publish_date")))) \
-        .withColumn("year", when(col("publish_date").isNotNull(), year(col("publish_date")))) \
-        .withColumn("weekday", when(col("publish_date").isNotNull(), date_format(col("publish_date"), "EEEE"))) \
-        .drop("cleaned_publish_date","timestamp_1", "timestamp_2", "timestamp_3", "timestamp_4", "timestamp_5")
-    
-    return df
-
-# Case: articles are from the same src
 def deduplicate_news(spark, cleaned_news_df, s3_output_path):
     cleaned_news_df.createOrReplaceTempView("news_blogs_temp")
     
     try:
-        silver_df  = spark.read.format("delta").load(s3_output_path)
+        silver_df = spark.read.format("delta").load(s3_output_path)
+        # Validate existing silver data
+        silver_df = silver_df.filter(
+            (col("url").isNotNull()) &
+            (col("src").isNotNull()) &
+            (col("title").isNotNull()) & 
+            (trim(col("title")) != "") & 
+            (lower(trim(col("title"))) != "no title") &
+            (col("content").isNotNull()) & 
+            (trim(col("content")) != "") &
+            (lower(trim(col("content"))) != "no content")
+        )
         silver_df.select("src", "url").createOrReplaceTempView("blogs_list")
+        print(f"Existing silver data after validation: {silver_df.count()} records")
     except Exception as e:
         print(f"No existing silver data found or error: {str(e)}")
         empty_df = spark.createDataFrame([], StructType([
@@ -221,15 +294,41 @@ def deduplicate_news(spark, cleaned_news_df, s3_output_path):
         WHERE b.url IS NULL
     """)
     
-    return result_df
+    window_spec = Window.partitionBy("src", "url").orderBy(col("publish_date").desc())
+    deduped_df = result_df.withColumn("row_number", row_number().over(window_spec)) \
+                        .filter("row_number = 1") \
+                        .drop("row_number")
+    
+    # Final validation before returning
+    deduped_df = deduped_df.filter(
+        (col("url").isNotNull()) &
+        (col("src").isNotNull()) &
+        (col("title").isNotNull()) & 
+        (trim(col("title")) != "") & 
+        (lower(trim(col("title"))) != "no title") &
+        (col("content").isNotNull()) & 
+        (trim(col("content")) != "") &
+        (lower(trim(col("content"))) != "no content")
+    )
+    
+    return deduped_df
 
-def save_to_silver(df, s3_output_path):
+def save_to_silver(df, s3_output_path, category_map):
     processed_date = current_date()
     df = df.withColumn("processed_date", processed_date) 
     
-    try: 
-        valid_df, error_df = clean_data(df)
+    try:
+        valid_df, error_df = clean_data(df, category_map)
         print(f"After cleaning: {valid_df.count()} valid records, {error_df.count()} error records")
+        
+        # Process publish_date and handle unparseable dates
+        valid_df = process_publish_date(valid_df)
+        unparseable_df = valid_df.filter(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull())
+        # Align unparseable_df schema with error_df
+        error_schema_columns = error_df.columns
+        unparseable_df = unparseable_df.select(error_schema_columns)
+        valid_df = valid_df.filter(~(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull()))
+        error_df = error_df.union(unparseable_df)
         
         if not error_df.isEmpty():
             error_df.write.format("delta") \
@@ -238,27 +337,42 @@ def save_to_silver(df, s3_output_path):
                 .save(f"{s3_output_path}_errors")
             print(f"Saved {error_df.count()} corrupt records to {s3_output_path}_errors")
         
-        valid_df = process_publish_date(valid_df)
-        
         result_df = deduplicate_news(spark, valid_df, s3_output_path)
-        print(f"New unique records: {result_df.count()}")
+        print(f"New unique records after deduplication: {result_df.count()}")
         
-        if DeltaTable.isDeltaTable(spark, s3_output_path): 
+        # Final validation before saving
+        result_df = result_df.filter(
+            (col("url").isNotNull()) &
+            (col("src").isNotNull()) &
+            (col("title").isNotNull()) & 
+            (trim(col("title")) != "") & 
+            (lower(trim(col("title"))) != "no title") &
+            (col("content").isNotNull()) & 
+            (trim(col("content")) != "") &
+            (lower(trim(col("content"))) != "no content")
+        )
+        print(f"Final valid records before saving: {result_df.count()}")
+        
+        # Select only schema-defined columns to avoid extra columns
+        schema_columns = [f.name for f in define_schema()]
+        result_df = result_df.select(schema_columns)
+        
+        if DeltaTable.isDeltaTable(spark, s3_output_path):
             delta_table = DeltaTable.forPath(spark, s3_output_path)
             delta_table.alias("silver").merge(
-                df.alias("new_data"),
+                result_df.alias("new_data"),
                 "silver.src = new_data.src AND silver.url = new_data.url"
-                ) \
-                .whenMatchedUpdateAll() \
-                .whenNotMatchedInsertAll() \
-                .execute()
+            ) \
+            .whenMatchedUpdateAll() \
+            .whenNotMatchedInsertAll() \
+            .execute()
             print(f"Successfully merged data into silver layer: {s3_output_path}")
         else:
-            df.write.format("delta") \
-            .option("mergeSchema", "true") \
-            .mode("append") \
-            .partitionBy("processed_date") \
-            .save(s3_output_path)
+            result_df.write.format("delta") \
+                .option("mergeSchema", "true") \
+                .mode("append") \
+                .partitionBy("processed_date") \
+                .save(s3_output_path)
             print(f"Successfully saved data to silver layer: {s3_output_path}")
     except Exception as e:
         print(f"Error saving data to silver layer: {str(e)}")
@@ -267,24 +381,35 @@ def save_to_silver(df, s3_output_path):
 if __name__ == "__main__":
     s3_input_path = "s3a://newsifyteam12/bronze_data/*/*.parquet"
     s3_output_path = "s3a://newsifyteam12/silver_data/blogs_list"
-    # s3_gold_path = "s3a://newsifyteam12/gold_data/blogs_list"
-    
+
     spark = create_spark_session()
-    
-    # schema = define_schema()
     
     news_df = read_data_bronze(spark, s3_input_path)
     print(f"Raw data loaded: {news_df.count()} records")
     
-    # valid_df, error_df = clean_data(df)
-    # print(f"After cleaning: {valid_df.count()} records")
+    category_map = {
+        "Sports": ["sports", "football", "nba", "tennis", "soccer", "cricket", "olympics"],
+        "Technology": ["tech", "technology", "gadgets", "ai", "software", "hardware", "computing"],
+        "Health": ["health", "wellness", "fitness", "medicine", "mental health", "nutrition"],
+        "Business and Finance": ["business", "economy", "markets", "finance", "stocks", "investing"],
+        "Entertainment": ["entertainment", "movies", "tv", "music", "celebrities", "hollywood"],
+        "Politics": ["politics", "election", "government", "policy", "diplomacy"],
+        "Science": ["science", "space", "research", "physics", "biology", "nasa"],
+        "Climate": ["climate", "environment", "global warming", "carbon", "sustainability"],
+        "Food and Drink": ["food", "drink", "cooking", "recipes", "restaurants", "beverage"],
+        "Travel and Transportation": ["travel", "transportation", "flights", "hotels", "tourism"],
+        "Beauty and Fashion": ["fashion", "style", "beauty", "makeup", "clothing"],
+        "Autos and Vehicles": ["cars", "autos", "vehicles", "automobile", "motorcycles"],
+        "Games": ["games", "gaming", "video games", "e-sports"],
+        "Hobbies and Leisure": ["hobbies", "leisure", "crafts", "diy", "collections"],
+        "Jobs and Education": ["jobs", "career", "education", "school", "university"],
+        "Law and Government": ["law", "justice", "regulation", "court", "legal", "government"],
+        "Pets and Animals": ["pets", "animals", "wildlife", "cats", "dogs"],
+        "Shopping": ["shopping", "ecommerce", "retail", "deals", "sales"],
+        "Other": []  
+    }
     
-    # processed_date_df = process_publish_date(cleaned_news_df)
-    
-    # result_df = deduplicate_news(spark, processed_date_df, s3_output_path)
-    # print(f"New unique records: {result_df.count()}")
-    
-    save_to_silver(news_df, s3_output_path)
+    save_to_silver(news_df, s3_output_path, category_map)
     
     spark.stop()
     
