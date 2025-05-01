@@ -14,7 +14,7 @@ def create_spark_session():
     load_dotenv()
 
     spark = SparkSession.builder \
-    .appName("ToBronze") \
+    .appName("RawToBronze") \
     .master("local[*]") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
@@ -33,6 +33,7 @@ schema_json = {
         {"name": "url", "type": "string", "nullable": False, "metadata": {}},
         {"name": "src", "type": "string", "nullable": False, "metadata": {}},
         {"name": "title", "type": "string", "nullable": True, "metadata": {}},
+        {"name": "language", "type": "string", "nullable": True, "metadata": {}},
         {"name": "content", "type": "string", "nullable": True, "metadata": {}},
         {"name": "image_url", "type": "string", "nullable": True, "metadata": {}},
         {"name": "publish_date", "type": "string", "nullable": True, "metadata": {}},
@@ -124,7 +125,7 @@ def save_to_bronze(df, s3_output_path: str):
 
 if __name__ == "__main__":
     s3_input_path = "s3a://newsifyteam12/raw_data/*/*.json"
-    s3_output_path = "s3a://newsifyteam12/bronze/cnn_delta/"
+    s3_output_path = "s3a://newsifyteam12/bronze_data/blogs_list"
     
     spark = create_spark_session()
     known_schema = get_delta_schema(spark, s3_output_path)

@@ -13,7 +13,7 @@ def create_spark_session():
     load_dotenv()
 
     spark = SparkSession.builder \
-    .appName("RawToSilver") \
+    .appName("BronzeToSilver") \
     .master("local[*]") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
@@ -30,6 +30,7 @@ def define_schema():
     return StructType([
         StructField("url", StringType(), False),
         StructField("src", StringType(), False),
+        StructField("language", StringType(), True),
         StructField("title", StringType(), True),
         StructField("content", StringType(), True),
         StructField("image_url", StringType(), True),
@@ -61,17 +62,13 @@ def define_schema():
 #         print(f"Error reading data from bronze: {str(e)}")
 #         raise
 
-def read_data_silver(spark, s3_input_path) -> DataFrame:
-    """
-    Đọc dữ liệu từ Bronze layer với schema của bảng Delta hiện tại, hoặc schema mặc định.
-    """
+def read_data_bronze(spark, s3_input_path) -> DataFrame:
     try:
         if DeltaTable.isDeltaTable(spark, s3_input_path):
             delta_table = DeltaTable.forPath(spark, s3_input_path)
             df = delta_table.toDF()
             print("Loaded data from Delta table with schema:")
             df.printSchema()
-            # Kiểm tra schema của bảng Delta so với define_schema
             expected_schema = define_schema()
             delta_schema = df.schema
             if delta_schema != expected_schema:
@@ -109,11 +106,9 @@ def clean_data(news_df: DataFrame) -> DataFrame:
         (col("content").isNotNull()) & 
         (trim(col("content")) != "") &
         (lower(trim(col("content"))) != "no content") &
-        # Kiểm tra cột day là integer hoặc null
         (col("day").isNull() | col("day").cast("integer").isNotNull())
     )
     
-    # Bản ghi lỗi (không thỏa mãn điều kiện hợp lệ)
     error_df = df.filter(~(
         (col("url").isNotNull()) &
         (col("src").isNotNull()) &
@@ -238,14 +233,13 @@ def save_to_silver(df, s3_output_path):
         
         if not error_df.isEmpty():
             error_df.write.format("delta") \
+                .option("mergeSchema", "true") \
                 .mode("append") \
                 .save(f"{s3_output_path}_errors")
             print(f"Saved {error_df.count()} corrupt records to {s3_output_path}_errors")
         
-        # Xử lý publish_date cho bản ghi hợp lệ
         valid_df = process_publish_date(valid_df)
         
-        # Loại bỏ bản ghi trùng lặp so với Silver layer
         result_df = deduplicate_news(spark, valid_df, s3_output_path)
         print(f"New unique records: {result_df.count()}")
         
@@ -261,7 +255,8 @@ def save_to_silver(df, s3_output_path):
             print(f"Successfully merged data into silver layer: {s3_output_path}")
         else:
             df.write.format("delta") \
-            .mode("overwrite") \
+            .option("mergeSchema", "true") \
+            .mode("append") \
             .partitionBy("processed_date") \
             .save(s3_output_path)
             print(f"Successfully saved data to silver layer: {s3_output_path}")
@@ -270,7 +265,7 @@ def save_to_silver(df, s3_output_path):
         raise
         
 if __name__ == "__main__":
-    s3_input_path = "s3a://newsifyteam12/bronze/*/*.parquet"
+    s3_input_path = "s3a://newsifyteam12/bronze_data/*/*.parquet"
     s3_output_path = "s3a://newsifyteam12/silver_data/blogs_list"
     # s3_gold_path = "s3a://newsifyteam12/gold_data/blogs_list"
     
@@ -278,7 +273,7 @@ if __name__ == "__main__":
     
     # schema = define_schema()
     
-    news_df = read_data_silver(spark, s3_input_path)
+    news_df = read_data_bronze(spark, s3_input_path)
     print(f"Raw data loaded: {news_df.count()} records")
     
     # valid_df, error_df = clean_data(df)

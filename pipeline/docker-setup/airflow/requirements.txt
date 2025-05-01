@@ -4,3 +4,4 @@ scrapy-user-agents
 boto3
 python-dotenv
 apache-airflow
+delta-spark psycopg2-binary supabase
