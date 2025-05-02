@@ -29,6 +29,29 @@ app.add_middleware(
 async def root():
     return {"status": "ok", "service": "audio-service"}
 
+@app.get("/articles", response_model=List[Article])
+async def get_articles(
+    startTime: str = Query(..., description="Start time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
+    endTime: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
+    db: Session = Depends(get_supabase_session)
+):
+    """
+    Get articles within the specified date range from the database.
+    
+    - **startTime**: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
+    - **endTime**: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
+    """
+    try:
+        articles = await article_service.get_articles_between_dates(startTime, endTime, db)
+        return articles
+    except HTTPException as e:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while fetching articles: {str(e)}"
+        )
+        
 @app.post("/podcast", response_model=PodcastResponse, status_code=201)
 async def generate_podcast(
     startTime: str = Query(..., description="Start time in ISO format (YYYY-MM-DDTHH:mm:ss)"),

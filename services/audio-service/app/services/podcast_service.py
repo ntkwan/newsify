@@ -1,15 +1,19 @@
 import os
 import tempfile
 import re
-from fastapi import HTTPException
+import json
+from fastapi import HTTPException, Depends
 from typing import List, Dict, Any, Tuple
 import openai
 import google.generativeai as genai
 from datetime import datetime
+from sqlalchemy.orm import Session
 from ..models import Article, TranscriptLine, ScriptSection
 from .upload_service import upload_service
 from .article_service import article_service
+from .database import get_digitalocean_session, podcasts_table
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -267,13 +271,14 @@ Here's the transcript:
             "timestampedTranscript": timestamped_transcript
         }
     
-    async def generate_podcast(self, start_time: str, end_time: str) -> Dict[str, Any]:
+    async def generate_podcast(self, start_time: str, end_time: str, db: Session = Depends(get_digitalocean_session)) -> Dict[str, Any]:
         """
         Generate a podcast from articles within a date range.
         
         Args:
             start_time: ISO format start date
             end_time: ISO format end date
+            db: Digital Ocean database session
             
         Returns:
             Dictionary with url, transcript, and timestampedTranscript
@@ -345,6 +350,45 @@ Here's the transcript:
             )
             
             print("Podcast uploaded successfully to:", uploaded_url)
+            
+            try:
+                timestamped_script_json = json.dumps([
+                    {
+                        "startTime": line["startTime"],
+                        "endTime": line["endTime"],
+                        "text": line["text"]
+                    } for line in transcript_data["timestampedTranscript"]
+                ])
+                
+                publish_date = None
+                for article in articles:
+                    if article.publish_date:
+                        try:
+                            article_date = datetime.fromisoformat(article.publish_date) if isinstance(article.publish_date, str) else article.publish_date
+                            if publish_date is None or article_date > publish_date:
+                                publish_date = article_date
+                        except (ValueError, TypeError):
+                            pass
+                
+                if publish_date is None:
+                    publish_date = datetime.now()
+                
+                db.execute(
+                    podcasts_table.insert().values(
+                        publish_date=publish_date,
+                        script=transcript_data["fullTranscript"],
+                        timestamp_script=timestamped_script_json,
+                        audio_url=uploaded_url,
+                        generated_date=datetime.now()
+                    )
+                )
+                db.commit()
+                
+                print("Podcast information saved to Digital Ocean database")
+                
+            except Exception as db_error:
+                print(f"Error saving podcast to database: {str(db_error)}")
+                # Continue even if database save fails
             
             os.unlink(audio_file_path)
             
