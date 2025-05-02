@@ -13,18 +13,7 @@ class Article(BaseModel):
     content: str
     image_url: Optional[str] = None
     publish_date: Optional[str] = None
-    time: Optional[str] = None
-    timezone: Optional[str] = None
-    hour: Optional[float] = None
-    minute: Optional[float] = None
-    day: Optional[float] = None
-    month: Optional[str] = None
-    month_number: Optional[float] = None
-    year: Optional[float] = None
-    weekday: Optional[str] = None
-    time_reading: Optional[str] = None
     author: Optional[str] = None
-
 
 class TranscriptLine(BaseModel):
     """Model representing a line in the podcast transcript with timestamps."""

@@ -1,15 +1,21 @@
 import os
 import tempfile
 import re
+import json
 from fastapi import HTTPException
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import openai
 import google.generativeai as genai
 from datetime import datetime
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from ..models import Article, TranscriptLine, ScriptSection
 from .upload_service import upload_service
 from .article_service import article_service
+from .database import get_digitalocean_db, get_digitalocean_session, podcasts_table
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, MetaData, inspect
+
 
 load_dotenv()
 
@@ -33,6 +39,36 @@ class PodcastService:
         
         genai.configure(api_key=google_api_key)
         self.google_model_name = os.getenv('GOOGLE_GEMINI_MODEL', 'gemini-1.5-pro-latest')
+        self._db_session = None
+    
+    def _get_db_session(self) -> Optional[Session]:
+        """Get a singleton database session."""
+        if self._db_session is None:
+            try:
+                self._db_session = get_digitalocean_db()
+                return self._db_session
+            except Exception as e:
+                print(f"Error creating Digital Ocean session: {str(e)}")
+                return None
+        return self._db_session
+    
+    async def _ensure_table_exists(self, session):
+        """Ensure that the Podcast table exists in the Digital Ocean database."""
+        try:
+            from app.services.database import podcasts_table, metadata, digitalocean_engine
+            
+            inspector = inspect(digitalocean_engine)
+            table_exists = "Podcast" in inspector.get_table_names()
+            
+            if not table_exists:
+                print("Podcast table does not exist. Creating...")
+                metadata.create_all(digitalocean_engine, tables=[podcasts_table])
+                print("Podcast table created successfully.")
+            
+            return True
+        except Exception as e:
+            print(f"Error ensuring table exists: {str(e)}")
+            return False
     
     async def summarize_article(self, article: Article) -> str:
         """
@@ -129,7 +165,6 @@ class PodcastService:
             
             print("Gemini transcription complete, parsing response")
             
-            # Create timestamp model
             timestamp_prompt = f"""
 The following is a transcript of an audio file.
 Create a detailed timestamped transcript with start and end times for each sentence.
@@ -168,7 +203,6 @@ Here's the transcript:
                 print(f"Error parsing transcript JSON: {parse_error}")
                 print(f"Raw JSON response: {json_text}")
                 
-                # Fallback to simple text-based transcript
                 return self.generate_smart_timestamps(response_text)
                 
         except Exception as e:
@@ -267,17 +301,21 @@ Here's the transcript:
             "timestampedTranscript": timestamped_transcript
         }
     
-    async def generate_podcast(self, start_time: str, end_time: str) -> Dict[str, Any]:
+    async def generate_podcast(self, start_time: str, end_time: str, db: Optional[Session] = None) -> Dict[str, Any]:
         """
         Generate a podcast from articles within a date range.
         
         Args:
             start_time: ISO format start date
             end_time: ISO format end date
+            db: Digital Ocean database session
             
         Returns:
             Dictionary with url, transcript, and timestampedTranscript
         """
+        if db is None:
+            db = self._get_db_session()
+            
         articles = await article_service.get_articles_between_dates(start_time, end_time)
         
         if not articles:
@@ -345,6 +383,48 @@ Here's the transcript:
             )
             
             print("Podcast uploaded successfully to:", uploaded_url)
+            
+            try:
+                await self._ensure_table_exists(db)
+                
+                timestamped_script_json = json.dumps([
+                    {
+                        "startTime": line["startTime"],
+                        "endTime": line["endTime"],
+                        "text": line["text"]
+                    } for line in transcript_data["timestampedTranscript"]
+                ])
+                
+                newest_date = None
+                
+                for article in articles:
+                    if article.publish_date:
+                        try:
+                            if isinstance(article.publish_date, datetime):
+                                article_date = article.publish_date
+                            else:
+                                article_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
+                                
+                            if newest_date is None or article_date > newest_date:
+                                newest_date = article_date
+                        except (ValueError, TypeError) as e:
+                            print(f"Could not parse date {article.publish_date}: {e}")
+                
+                if newest_date is None:
+                    newest_date = datetime.now()
+                
+                stmt = podcasts_table.insert().values(
+                    publish_date=newest_date,
+                    script=transcript_data["fullTranscript"],
+                    timestamp_script=timestamped_script_json,
+                    audio_url=uploaded_url,
+                    generated_date=func.now()
+                )
+                db.execute(stmt)
+                db.commit()
+                print(f"Podcast saved to database with publish_date {newest_date}")
+            except Exception as db_error:
+                print(f"Error saving podcast to database: {str(db_error)}")
             
             os.unlink(audio_file_path)
             
