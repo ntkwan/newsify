@@ -56,6 +56,7 @@ trending_articles_table = Table(
     Column('main_category', String, nullable=False),
     Column('title', Text, nullable=False),
     Column('trend', Text),
+    Column('content', Text, nullable=False),
     Column('summary', Text, nullable=True),
     Column('similarity_score', Float, nullable=False),
     Column('publish_date', DateTime(timezone=True), nullable=True),

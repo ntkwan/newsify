@@ -87,7 +87,11 @@ class TrendingService:
     async def save_trending_analysis(self, article_id: str, url: str, title: str, 
                                      trend: Optional[str], similarity_score: float, 
                                      publish_date: Optional[datetime] = None,
-                                     summary: Optional[str] = None) -> bool:
+                                     summary: Optional[str] = None,
+                                     image_url: Optional[str] = None,
+                                     categories: Optional[list] = None,
+                                     main_category: Optional[str] = None,
+                                     content: Optional[str] = None) -> bool:
         """
         Save trending analysis results to Digital Ocean database.
         
@@ -99,12 +103,22 @@ class TrendingService:
             similarity_score: Similarity score (0-1)
             publish_date: Publication date of the article
             summary: Summary of the article content
+            image_url: URL to the article's image
+            categories: List of categories the article belongs to
+            main_category: Main category of the article
+            content: Full article content
             
         Returns:
             True if save was successful, False otherwise
         """
         try:
             await self._ensure_table_exists()
+            
+            if categories is None:
+                categories = []
+            
+            if main_category is None:
+                main_category = 'Other'
             
             with self._get_digitalocean_session() as session:
                 stmt = trending_articles_table.insert().values(
@@ -113,8 +127,12 @@ class TrendingService:
                     title=title,
                     trend=trend,
                     summary=summary,
+                    image_url=image_url,
+                    categories=categories,
+                    main_category=main_category,
                     similarity_score=similarity_score,
                     publish_date=publish_date,
+                    content=content,
                     analyzed_date=func.now()
                 )
                 session.execute(stmt)
@@ -188,7 +206,10 @@ class TrendingService:
                     articles_table.c.url,
                     articles_table.c.title,
                     articles_table.c.content,
-                    articles_table.c.publish_date
+                    articles_table.c.publish_date,
+                    articles_table.c.image_url,
+                    articles_table.c.categories,
+                    articles_table.c.main_category
                 ).where(
                     articles_table.c.publish_date >= start_time
                 ).order_by(
@@ -204,6 +225,9 @@ class TrendingService:
                         "url": row.url,
                         "title": row.title,
                         "content": row.content,
+                        "image_url": row.image_url,
+                        "categories": row.categories,
+                        "main_category": row.main_category,
                         "publish_date": row.publish_date.isoformat() if row.publish_date else None
                     })
                 
@@ -233,6 +257,9 @@ class TrendingService:
                     trending_articles_table.c.title,
                     trending_articles_table.c.trend,
                     trending_articles_table.c.summary,
+                    trending_articles_table.c.image_url,
+                    trending_articles_table.c.categories,
+                    trending_articles_table.c.main_category,
                     trending_articles_table.c.similarity_score,
                     trending_articles_table.c.publish_date,
                     trending_articles_table.c.analyzed_date
@@ -256,7 +283,10 @@ class TrendingService:
                         "summary": row.summary,
                         "similarity_score": float(row.similarity_score),
                         "publish_date": row.publish_date.isoformat() if row.publish_date else None,
-                        "analyzed_date": row.analyzed_date.isoformat() if row.analyzed_date else None
+                        "analyzed_date": row.analyzed_date.isoformat() if row.analyzed_date else None,
+                        "image_url": row.image_url,
+                        "categories": row.categories if row.categories else [],
+                        "main_category": row.main_category if row.main_category else "General"
                     })
                 
                 return trending_articles

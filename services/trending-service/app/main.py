@@ -49,6 +49,9 @@ class TrendingArticle(BaseModel):
     article_id: Optional[str] = None
     publish_date: Optional[str] = None
     analyzed_date: Optional[str] = None
+    image_url: Optional[str] = None
+    categories: List[str] = []
+    main_category: Optional[str] = None
 
 class TrendingSavedArticle(BaseModel):
     trending_id: str
@@ -60,6 +63,9 @@ class TrendingSavedArticle(BaseModel):
     similarity_score: float
     publish_date: Optional[str] = None
     analyzed_date: str
+    image_url: Optional[str] = None
+    categories: List[str] = []
+    main_category: str = "General"
 
 class ArticleAnalysisRequest(BaseModel):
     content: str
@@ -215,7 +221,11 @@ async def analyze_article(article: ArticleAnalysisRequest):
             trend=analysis["trend"],
             summary=summary,
             similarity_score=analysis["similarity_score"],
-            publish_date=publish_date
+            publish_date=publish_date,
+            categories=[],  # Default empty array for categories
+            main_category="General",  # Default main category
+            image_url=None,  # Default image URL
+            content=article.content  # Article content
         )
     
     return result
@@ -261,7 +271,11 @@ async def analyze_articles_batch(request: ArticleBatchRequest):
                 trend=analysis["trend"],
                 summary=summary,
                 similarity_score=analysis["similarity_score"],
-                publish_date=publish_date
+                publish_date=publish_date,
+                categories=[],  # Default empty array for categories
+                main_category="General",  # Default main category
+                image_url=None,  # Default image URL
+                content=article.content  # Article content
             )
         
         results.append(result)
@@ -340,7 +354,10 @@ async def analyze_latest_articles(
                     "similarity_score": 0.0,
                     "article_id": article["id"],
                     "publish_date": article["publish_date"],
-                    "analyzed_date": datetime.now().isoformat()
+                    "analyzed_date": datetime.now().isoformat(),
+                    "image_url": article["image_url"],
+                    "categories": article["categories"],
+                    "main_category": article["main_category"]
                 } for article in articles
             ]
         
@@ -354,6 +371,17 @@ async def analyze_latest_articles(
                 
                 summary = None
                 publish_date = None
+                
+                categories = article.get("categories", [])
+                if categories is None:
+                    categories = []
+                    
+                main_category = article.get("main_category", "General")
+                if main_category is None:
+                    main_category = "General"
+                    
+                image_url = article.get("image_url")
+                
                 if "publish_date" in article and article["publish_date"]:
                     if isinstance(article["publish_date"], str):
                         try:
@@ -370,7 +398,11 @@ async def analyze_latest_articles(
                     trend=analysis["trend"],
                     similarity_score=analysis["similarity_score"],
                     summary=summary,
-                    publish_date=publish_date
+                    publish_date=publish_date,
+                    categories=categories,
+                    main_category=main_category,
+                    image_url=image_url,
+                    content=article["content"]
                 )
                 
                 results.append({

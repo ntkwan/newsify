@@ -32,10 +32,11 @@ def create_trending_articles_table_if_not_exists(do_engine):
         Column('main_category', String, nullable=False),
         Column('title', Text, nullable=False),
         Column('trend', Text),
+        Column('content', Text, nullable=False),
         Column('summary', Text, nullable=True),
         Column('similarity_score', Float, nullable=False),
         Column('publish_date', DateTime(timezone=True), nullable=True),
-        Column('analyzed_date', DateTime(timezone=True), nullable=False, server_default=func.now()),
+        Column('analyzed_date', DateTime(timezone=True), nullable=False, server_default=text('CURRENT_TIMESTAMP')),
         schema='public'
     )
     
@@ -95,18 +96,19 @@ def migrate_articles():
                     skipped_count += 1
                     continue
                 
+                # Default values for fields that might not exist in source
                 summary = article.summary if hasattr(article, 'summary') else None
-                categories = article.categories if hasattr(article, 'categories') else []
-                main_category = article.main_category if hasattr(article, 'main_category') else None
+                categories = article.categories if hasattr(article, 'categories') and article.categories is not None else []
+                main_category = article.main_category if hasattr(article, 'main_category') and article.main_category is not None else 'General'
                 image_url = article.image_url if hasattr(article, 'image_url') else None
                 
                 insert_query = text("""
                     INSERT INTO "TrendingArticles" (
                         trending_id, article_id, url, image_url, categories, main_category,
-                        title, summary, similarity_score, publish_date
+                        title, summary, similarity_score, publish_date, content
                     ) VALUES (
                         :trending_id, :article_id, :url, :image_url, :categories, :main_category,
-                        :title, :summary, :similarity_score, :publish_date
+                        :title, :summary, :similarity_score, :publish_date, :content
                     )
                 """)
                 
@@ -116,14 +118,15 @@ def migrate_articles():
                     'url': article.url,
                     'image_url': image_url,
                     'categories': categories,
-                    'main_category': main_category if main_category else 'General',
+                    'main_category': main_category,
                     'title': article.title,
                     'summary': summary,
-                    'similarity_score': 0.0,  # Default value since we're just migrating
-                    'publish_date': article.publish_date if hasattr(article, 'publish_date') else None
+                    'similarity_score': 0.0,  
+                    'publish_date': article.publish_date if hasattr(article, 'publish_date') else None,
+                    'content': article.content if hasattr(article, 'content') else article.title if hasattr(article, 'title') else 'No content'
                 }
                 
-                do_conn.execute(insert_query, article_data)
+                do_conn.execute(insert_query, article_data) 
                 do_conn.commit()
                 inserted_count += 1
                 
