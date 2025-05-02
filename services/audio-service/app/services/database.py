@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, DateTime, String, Integer, BigInteger, Text, Table, MetaData
+from sqlalchemy import create_engine, Column, DateTime, String, Integer, BigInteger, Text, Table, MetaData, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -56,6 +56,8 @@ podcasts_table = Table(
     Column('generated_date', DateTime(timezone=True), nullable=False, server_default=func.now()),
     schema='public'
 )
+
+Index('ix_podcast_publish_date', podcasts_table.c.publish_date)
 
 @contextmanager
 def get_supabase_session():
