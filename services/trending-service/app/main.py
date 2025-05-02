@@ -235,6 +235,52 @@ async def analyze_articles_batch(request: ArticleBatchRequest):
     
     return results
 
+@app.post("/analyze/latest", response_model=List[TrendingArticle])
+async def analyze_latest_articles(
+    hours: int = Query(24, description="Hours of recent articles to analyze"),
+    limit: int = Query(20, description="Maximum number of articles to analyze")
+):
+    """
+    Analyze the latest articles from the processed database and save trending results
+    
+    This endpoint:
+    1. Fetches the most recent articles from Supabase within the specified time window
+    2. Analyzes them against current trending topics
+    3. Saves the results to the Digital Ocean database
+    """
+    trending_service = TrendingService()
+    
+    articles = await trending_service.get_recent_articles_by_time(hours=hours, limit=limit)
+    
+    if not articles:
+        return []
+    
+    trends_data = get_related_queries(get_trending_keywords())
+    
+    results = []
+    for article in articles:
+        analysis = analyze_article_trending(article["content"], trends_data)
+        
+        await trending_service.save_trending_analysis(
+            article_id=article["id"],
+            url=article["url"],
+            title=article["title"],
+            trend=analysis["trend"],
+            similarity_score=analysis["similarity_score"]
+        )
+        
+        results.append({
+            "url": article["url"],
+            "title": article["title"],
+            "content": article["content"],
+            "trend": analysis["trend"],
+            "similarity_score": analysis["similarity_score"],
+            "article_id": article["id"],
+            "analyzed_date": datetime.now().isoformat()
+        })
+    
+    return results
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 

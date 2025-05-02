@@ -3,7 +3,7 @@ from sqlalchemy import inspect, func, select
 from sqlalchemy.orm import Session
 from uuid import UUID
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from .database import trending_articles_table, articles_table, get_supabase_db, get_digitalocean_db, digitalocean_engine, metadata
 
 class TrendingService:
@@ -134,6 +134,56 @@ class TrendingService:
         except Exception as e:
             print(f"Error saving trending analysis to database: {str(e)}")
             return False
+    
+    async def get_recent_articles_by_time(self, hours: int = 24, limit: int = 20) -> List[Dict]:
+        """
+        Fetch articles from Supabase published within the last X hours.
+        
+        Args:
+            hours: Number of hours to look back
+            limit: Maximum number of articles to fetch
+            
+        Returns:
+            List of article dictionaries
+        """
+        try:
+            session = self._get_supabase_session()
+            if not session:
+                print("Could not get Supabase session")
+                return []
+            
+            cutoff_time = datetime.now() - timedelta(hours=hours) 
+            
+            query = select([
+                articles_table.c.id,
+                articles_table.c.url,
+                articles_table.c.title,
+                articles_table.c.content,
+                articles_table.c.publish_date
+            ]).where(
+                articles_table.c.publish_date >= cutoff_time
+            ).order_by(
+                articles_table.c.publish_date.desc()
+            ).limit(limit)
+            
+            result = session.execute(query)
+            
+            articles = []
+            for row in result:
+                articles.append({
+                    "id": str(row.id),
+                    "url": row.url,
+                    "title": row.title,
+                    "content": row.content,
+                    "publish_date": row.publish_date.isoformat() if row.publish_date else None
+                })
+            
+            return articles
+        except Exception as e:
+            print(f"Error fetching recent articles from Supabase: {str(e)}")
+            return []
+    
+    async def get_trending_articles(self, limit: int = 10) -> List[Dict]:
         """
         Get trending articles from Digital Ocean database.
         

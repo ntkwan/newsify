@@ -88,6 +88,24 @@ Query Parameters:
 
 Returns related queries for trending topics from Google Trends.
 
+### Analyze Latest Articles
+
+```
+POST /analyze/latest?hours=24&limit=20
+```
+
+Query Parameters:
+- `hours`: Number of hours to look back for articles (default: 24)
+- `limit`: Maximum number of articles to analyze (default: 20)
+
+This endpoint automatically:
+1. Fetches the most recent articles published within the specified time window
+2. Analyzes each article against current trending topics
+3. Saves the analysis results to the Digital Ocean database
+4. Returns the list of analyzed articles with trending information
+
+This endpoint is designed to be triggered by a scheduled CronJob to automate trending analysis at specific times of day.
+
 ### Analyze Article
 
 ```
