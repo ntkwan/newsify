@@ -85,7 +85,9 @@ class TrendingService:
             return []
     
     async def save_trending_analysis(self, article_id: str, url: str, title: str, 
-                                     trend: Optional[str], similarity_score: float) -> bool:
+                                     trend: Optional[str], similarity_score: float, 
+                                     publish_date: Optional[datetime] = None,
+                                     summary: Optional[str] = None) -> bool:
         """
         Save trending analysis results to Digital Ocean database.
         
@@ -95,6 +97,8 @@ class TrendingService:
             title: Title of the article
             trend: Identified trend (or None if below threshold)
             similarity_score: Similarity score (0-1)
+            publish_date: Publication date of the article
+            summary: Summary of the article content
             
         Returns:
             True if save was successful, False otherwise
@@ -108,7 +112,9 @@ class TrendingService:
                     url=url,
                     title=title,
                     trend=trend,
+                    summary=summary,
                     similarity_score=similarity_score,
+                    publish_date=publish_date,
                     analyzed_date=func.now()
                 )
                 session.execute(stmt)
@@ -226,11 +232,14 @@ class TrendingService:
                     trending_articles_table.c.url,
                     trending_articles_table.c.title,
                     trending_articles_table.c.trend,
+                    trending_articles_table.c.summary,
                     trending_articles_table.c.similarity_score,
+                    trending_articles_table.c.publish_date,
                     trending_articles_table.c.analyzed_date
                 ).where(
                     trending_articles_table.c.trend.isnot(None)
                 ).order_by(
+                    trending_articles_table.c.publish_date.desc(),
                     trending_articles_table.c.similarity_score.desc()
                 ).limit(limit)
                 
@@ -244,7 +253,9 @@ class TrendingService:
                         "url": row.url,
                         "title": row.title,
                         "trend": row.trend,
+                        "summary": row.summary,
                         "similarity_score": float(row.similarity_score),
+                        "publish_date": row.publish_date.isoformat() if row.publish_date else None,
                         "analyzed_date": row.analyzed_date.isoformat() if row.analyzed_date else None
                     })
                 

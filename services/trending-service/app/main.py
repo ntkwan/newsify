@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 import pandas as pd
 import numpy as np
 from serpapi.google_search import GoogleSearch
@@ -9,13 +8,11 @@ import os
 from datetime import datetime
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import json
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
-from sqlalchemy.orm import Session
-from app.services.database import get_supabase_db, get_digitalocean_db
 from app.services.trending_service import TrendingService
 from uuid import UUID
+import uvicorn
 
 load_dotenv()
 
@@ -47,8 +44,10 @@ class TrendingArticle(BaseModel):
     title: str
     content: str
     trend: Optional[str] = None
+    summary: Optional[str] = None
     similarity_score: float
     article_id: Optional[str] = None
+    publish_date: Optional[str] = None
     analyzed_date: Optional[str] = None
 
 class TrendingSavedArticle(BaseModel):
@@ -57,13 +56,17 @@ class TrendingSavedArticle(BaseModel):
     url: str
     title: str
     trend: str
+    summary: Optional[str] = None
     similarity_score: float
+    publish_date: Optional[str] = None
     analyzed_date: str
 
 class ArticleAnalysisRequest(BaseModel):
     content: str
     title: Optional[str] = None
     url: Optional[str] = None
+    article_id: Optional[str] = None
+    publish_date: Optional[str] = None
 
 class ArticleBatchRequest(BaseModel):
     articles: List[ArticleAnalysisRequest]
@@ -120,7 +123,6 @@ def get_related_queries(keywords: List[str]):
             word_results = word_search.get_dict()
             related_word_queries = word_results.get("related_queries", {})
             
-            # Process rising queries
             for item in related_word_queries.get('rising', []):
                 rows.append({
                     'query': item.get('query'),
@@ -184,13 +186,24 @@ async def analyze_article(article: ArticleAnalysisRequest):
     
     analysis = analyze_article_trending(article.content, trends_data)
     
+    summary = None
+    publish_date = None
+    if article.publish_date:
+        try:
+            publish_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
+        except (ValueError, TypeError):
+            print(f"Invalid publish_date format: {article.publish_date}")
+    
     result = {
         "url": article.url or "",
         "title": article.title or "",
         "content": article.content,
         "trend": analysis["trend"],
+        "summary": summary,
         "similarity_score": analysis["similarity_score"],
         "article_id": article.article_id,
+        "publish_date": article.publish_date,
+        "analyzed_date": datetime.now().isoformat()
     }
     
     if article.article_id:
@@ -200,7 +213,9 @@ async def analyze_article(article: ArticleAnalysisRequest):
             url=article.url or "",
             title=article.title or "",
             trend=analysis["trend"],
-            similarity_score=analysis["similarity_score"]
+            summary=summary,
+            similarity_score=analysis["similarity_score"],
+            publish_date=publish_date
         )
     
     return result
@@ -218,13 +233,24 @@ async def analyze_articles_batch(request: ArticleBatchRequest):
     for article in request.articles:
         analysis = analyze_article_trending(article.content, trends_data)
         
+        summary = None
+        publish_date = None
+        if article.publish_date:
+            try:
+                publish_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                print(f"Invalid publish_date format: {article.publish_date}")
+        
         result = {
             "url": article.url or "",
             "title": article.title or "",
             "content": article.content,
             "trend": analysis["trend"],
+            "summary": summary,
             "similarity_score": analysis["similarity_score"],
             "article_id": article.article_id,
+            "publish_date": article.publish_date,
+            "analyzed_date": datetime.now().isoformat()
         }
         
         if article.article_id:
@@ -233,7 +259,9 @@ async def analyze_articles_batch(request: ArticleBatchRequest):
                 url=article.url or "",
                 title=article.title or "",
                 trend=analysis["trend"],
-                similarity_score=analysis["similarity_score"]
+                summary=summary,
+                similarity_score=analysis["similarity_score"],
+                publish_date=publish_date
             )
         
         results.append(result)
@@ -288,8 +316,10 @@ async def analyze_latest_articles(
                     "title": article["title"],
                     "content": article["content"],
                     "trend": None,
+                    "summary": None,
                     "similarity_score": 0.0,
                     "article_id": article["id"],
+                    "publish_date": article["publish_date"],
                     "analyzed_date": datetime.now().isoformat()
                 } for article in articles
             ]
@@ -306,8 +336,10 @@ async def analyze_latest_articles(
                     "title": article["title"],
                     "content": article["content"],
                     "trend": None,
+                    "summary": None,
                     "similarity_score": 0.0,
                     "article_id": article["id"],
+                    "publish_date": article["publish_date"],
                     "analyzed_date": datetime.now().isoformat()
                 } for article in articles
             ]
@@ -320,12 +352,25 @@ async def analyze_latest_articles(
                 print(f"Analyzing article: {article['id']} - {article['title']}")
                 analysis = analyze_article_trending(article["content"], trends_data)
                 
+                summary = None
+                publish_date = None
+                if "publish_date" in article and article["publish_date"]:
+                    if isinstance(article["publish_date"], str):
+                        try:
+                            publish_date = datetime.fromisoformat(article["publish_date"].replace('Z', '+00:00'))
+                        except (ValueError, TypeError):
+                            publish_date = None
+                    else:
+                        publish_date = article["publish_date"]
+                
                 await trending_service.save_trending_analysis(
                     article_id=article["id"],
                     url=article["url"],
                     title=article["title"],
                     trend=analysis["trend"],
-                    similarity_score=analysis["similarity_score"]
+                    similarity_score=analysis["similarity_score"],
+                    summary=summary,
+                    publish_date=publish_date
                 )
                 
                 results.append({
@@ -333,8 +378,10 @@ async def analyze_latest_articles(
                     "title": article["title"],
                     "content": article["content"],
                     "trend": analysis["trend"],
+                    "summary": summary,
                     "similarity_score": analysis["similarity_score"],
                     "article_id": article["id"],
+                    "publish_date": article["publish_date"],
                     "analyzed_date": datetime.now().isoformat()
                 })
                 
@@ -351,5 +398,4 @@ async def analyze_latest_articles(
         raise HTTPException(status_code=500, detail=error_msg)
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, DateTime, String, Integer, BigInteger, Text, Table, MetaData, Float
+from sqlalchemy import create_engine, Column, DateTime, String, Integer, BigInteger, Text, Table, MetaData, Float, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -53,10 +53,14 @@ trending_articles_table = Table(
     Column('url', Text, nullable=False),
     Column('title', Text, nullable=False),
     Column('trend', Text),
+    Column('summary', Text, nullable=True),
     Column('similarity_score', Float, nullable=False),
+    Column('publish_date', DateTime(timezone=True), nullable=True),
     Column('analyzed_date', DateTime(timezone=True), nullable=False, server_default=func.now()),
     schema='public'
 )
+
+Index('ix_trending_articles_publish_date', trending_articles_table.c.publish_date)
 
 @contextmanager
 def get_supabase_session():
