@@ -46,18 +46,6 @@ If you encounter database connection errors like `relation "public.Podcast" does
 
 ## API Endpoints
 
-### Get Articles
-
-```
-GET /articles?startTime=2025-04-18T00:00:00&endTime=2025-04-19T00:00:00
-```
-
-Query Parameters:
-- `startTime`: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
-- `endTime`: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
-
-Returns a list of articles from the database within the specified date range.
-
 ### Generate Podcast
 
 ```
