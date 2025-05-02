@@ -49,13 +49,6 @@ export class ArticleRepository {
         });
     }
 
-    async findLatest(limit: number = 10): Promise<Article[]> {
-        return this.articleModel.findAll({
-            limit,
-            order: [['publishDate', 'DESC']],
-        });
-    }
-
     async findById(id: string): Promise<Article> {
         return this.articleModel.findByPk(id);
     }
