@@ -11,6 +11,8 @@ import { AuthModule } from './auth/auth.module';
 import { HttpModule } from '@nestjs/axios';
 import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { ArticlesModule } from './articles/articles.module';
+import { Article } from './articles/entities/article.model';
+
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -59,33 +61,29 @@ import { ArticlesModule } from './articles/articles.module';
 
         SequelizeModule.forRootAsync({
             imports: [ConfigModule],
-            useFactory: (configService: ConfigService) => ({
-                dialect: 'postgres',
-                dialectModule: pg,
-                dialectOptions: {
-                    ssl: { require: true, rejectUnauthorized: false },
-                },
-                uri: configService.get('DATABASE_MIGRATION'),
-                autoLoadModels: true,
-                synchronize: true,
-                models: [User],
-                pool: {
-                    max: 20,
-                    min: 0,
-                    acquire: 30000,
-                    idle: 10000,
-                },
-                define: {
-                    timestamps: true,
-                    underscored: true,
-                },
-                logging:
-                    configService.get('ENV') === 'development'
-                        ? console.log
-                        : false,
-            }),
+            useFactory: (configService: ConfigService) => {
+                const isDevelopment =
+                    configService.get('ENV') === 'development';
+
+                return {
+                    dialect: 'postgres',
+                    host: configService.get('DO_DB_HOST'),
+                    port: configService.get('DO_DB_PORT'),
+                    username: configService.get('DO_DB_USERNAME'),
+                    password: configService.get('DO_DB_PASSWORD'),
+                    database: configService.get('DO_DB_NAME'),
+                    dialectModule: pg,
+                    autoLoadModels: true,
+                    synchronize: true,
+                    models: [User, Article],
+                    dialectOptions: isDevelopment
+                        ? { ssl: { require: true, rejectUnauthorized: false } }
+                        : { ssl: false },
+                };
+            },
             inject: [ConfigService],
         }),
+
         AuthModule,
         UsersModule,
         ArticlesModule,

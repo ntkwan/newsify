@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ArticlesService, PaginatedArticlesResult } from './articles.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { DateRangePaginationDto } from './dtos/time-range.dto';
 import { PaginationDto } from './dtos/pagination.dto';
 import { PaginatedArticlesResponseDto } from './dtos/pagination-response.dto';
@@ -40,5 +40,23 @@ export class ArticlesController {
             query.page,
             query.pageSize,
         );
+    }
+
+    @ApiOperation({ summary: 'Get latest articles' })
+    @ApiResponse({
+        status: 200,
+        description: 'Returns the latest articles sorted by publish date',
+    })
+    @ApiQuery({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Maximum number of articles to return',
+    })
+    @Get('latest')
+    async getLatestArticles(
+        @Query('limit') limit: number = 10,
+    ): Promise<any[]> {
+        return this.articlesService.getLatestArticles(limit);
     }
 }
