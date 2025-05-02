@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import pandas as pd
@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 import json
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from sqlalchemy.orm import Session
+from app.services.database import get_supabase_db, get_digitalocean_db
+from app.services.trending_service import TrendingService
+from uuid import UUID
 
 load_dotenv()
 
@@ -44,6 +48,17 @@ class TrendingArticle(BaseModel):
     content: str
     trend: Optional[str] = None
     similarity_score: float
+    article_id: Optional[str] = None
+    analyzed_date: Optional[str] = None
+
+class TrendingSavedArticle(BaseModel):
+    trending_id: str
+    article_id: str
+    url: str
+    title: str
+    trend: str
+    similarity_score: float
+    analyzed_date: str
 
 class ArticleAnalysisRequest(BaseModel):
     content: str
@@ -157,37 +172,66 @@ async def get_trending_related(country: str = Query("US", description="Country c
 
 @app.post("/analyze", response_model=TrendingArticle)
 async def analyze_article(article: ArticleAnalysisRequest):
-    """Analyze a single article for trending relevance"""
+    """Analyze a single article for trending relevance and save results to database"""
     trends_data = get_related_queries(get_trending_keywords())
     
     analysis = analyze_article_trending(article.content, trends_data)
     
-    return {
+    result = {
         "url": article.url or "",
         "title": article.title or "",
         "content": article.content,
         "trend": analysis["trend"],
-        "similarity_score": analysis["similarity_score"]
+        "similarity_score": analysis["similarity_score"],
+        "article_id": article.article_id,
     }
+    
+    # Save to Digital Ocean database if article_id is provided
+    if article.article_id:
+        trending_service = TrendingService()
+        await trending_service.save_trending_analysis(
+            article_id=article.article_id,
+            url=article.url or "",
+            title=article.title or "",
+            trend=analysis["trend"],
+            similarity_score=analysis["similarity_score"]
+        )
+    
+    return result
 
 @app.post("/analyze/batch", response_model=List[TrendingArticle])
 async def analyze_articles_batch(request: ArticleBatchRequest):
-    """Analyze multiple articles for trending relevance"""
+    """Analyze multiple articles for trending relevance and save results to database"""
     if not request.articles:
         return []
     
     trends_data = get_related_queries(get_trending_keywords())
+    trending_service = TrendingService()
     
     results = []
     for article in request.articles:
         analysis = analyze_article_trending(article.content, trends_data)
-        results.append({
+        
+        result = {
             "url": article.url or "",
             "title": article.title or "",
             "content": article.content,
             "trend": analysis["trend"],
-            "similarity_score": analysis["similarity_score"]
-        })
+            "similarity_score": analysis["similarity_score"],
+            "article_id": article.article_id,
+        }
+        
+        # Save to Digital Ocean database if article_id is provided
+        if article.article_id:
+            await trending_service.save_trending_analysis(
+                article_id=article.article_id,
+                url=article.url or "",
+                title=article.title or "",
+                trend=analysis["trend"],
+                similarity_score=analysis["similarity_score"]
+            )
+        
+        results.append(result)
     
     return results
 
