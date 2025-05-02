@@ -6,18 +6,22 @@ from sqlalchemy.sql import func
 import os
 from dotenv import load_dotenv
 import uuid
+from contextlib import contextmanager
 
 load_dotenv()
+
+print(f"Database connection variables: DB_NAME={os.getenv('DB_NAME')}, DATABASE={os.getenv('DATABASE')}")
+print(f"DO Database variables: DO_DB_NAME={os.getenv('DO_DB_NAME')}, DO_DB_HOST={os.getenv('DO_DB_HOST')}")
 
 SUPABASE_DATABASE_URL = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DATABASE')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}?sslmode=require"
 
 DIGITALOCEAN_DATABASE_URL = f"postgresql://{os.getenv('DO_DB_USERNAME')}:{os.getenv('DO_DB_PASSWORD')}@{os.getenv('DO_DB_HOST')}:{os.getenv('DO_DB_PORT')}/{os.getenv('DO_DB_NAME')}?sslmode=require"
 
-supabase_engine = create_engine(SUPABASE_DATABASE_URL)
-digitalocean_engine = create_engine(DIGITALOCEAN_DATABASE_URL)
+supabase_engine = create_engine(SUPABASE_DATABASE_URL, echo=True)
+digitalocean_engine = create_engine(DIGITALOCEAN_DATABASE_URL, echo=True)
 
-SupabaseSession = sessionmaker(bind=supabase_engine)
-DigitalOceanSession = sessionmaker(bind=digitalocean_engine)
+SupabaseSession = sessionmaker(bind=supabase_engine, autocommit=False, autoflush=False)
+DigitalOceanSession = sessionmaker(bind=digitalocean_engine, autocommit=False, autoflush=False)
 
 metadata = MetaData()
 
@@ -53,16 +57,46 @@ podcasts_table = Table(
     schema='public'
 )
 
+@contextmanager
 def get_supabase_session():
+    """
+    Get a database session for Supabase.
+    
+    Returns:
+        Session: SQLAlchemy session object
+    """
     session = SupabaseSession()
     try:
         yield session
+    except Exception as e:
+        session.rollback()
+        raise e
     finally:
         session.close()
 
+@contextmanager
 def get_digitalocean_session():
+    """
+    Get a database session for Digital Ocean.
+    
+    Returns:
+        Session: SQLAlchemy session object
+    """
     session = DigitalOceanSession()
     try:
         yield session
+    except Exception as e:
+        session.rollback()
+        raise e
     finally:
         session.close()
+
+def get_supabase_db():
+    """FastAPI dependency for Supabase database session"""
+    with get_supabase_session() as session:
+        yield session
+
+def get_digitalocean_db():
+    """FastAPI dependency for DigitalOcean database session"""
+    with get_digitalocean_session() as session:
+        yield session

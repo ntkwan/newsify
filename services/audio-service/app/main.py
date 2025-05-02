@@ -3,11 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import os
 from typing import List
+from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
 from .models import PodcastResponse, Article
 from .services.podcast_service import podcast_service
 from .services.article_service import article_service
+from .services.database import get_supabase_db, get_digitalocean_db
 
 load_dotenv()
 
@@ -28,34 +30,12 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"status": "ok", "service": "audio-service"}
-
-@app.get("/articles", response_model=List[Article])
-async def get_articles(
-    startTime: str = Query(..., description="Start time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
-    endTime: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
-    db: Session = Depends(get_supabase_session)
-):
-    """
-    Get articles within the specified date range from the database.
-    
-    - **startTime**: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
-    - **endTime**: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
-    """
-    try:
-        articles = await article_service.get_articles_between_dates(startTime, endTime, db)
-        return articles
-    except HTTPException as e:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while fetching articles: {str(e)}"
-        )
         
 @app.post("/podcast", response_model=PodcastResponse, status_code=201)
 async def generate_podcast(
     startTime: str = Query(..., description="Start time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
-    endTime: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:mm:ss)")
+    endTime: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:mm:ss)"),
+    db: Session = Depends(get_digitalocean_db)
 ):
     """
     Generate a podcast from articles within a date range.
@@ -77,7 +57,8 @@ async def generate_podcast(
         
         result = await podcast_service.generate_podcast(
             startTime,
-            endTime
+            endTime,
+            db
         )
         
         return result
