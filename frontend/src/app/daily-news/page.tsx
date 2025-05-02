@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { newsService } from '@/services/news.service';
+import { ArticleService } from '@/services/article.service';
 import NewsArticle from '@/components/news-article';
 import NewsSkeleton from '@/components/news-skeleton';
 import Pagination from '@/components/pagination';
@@ -7,20 +7,14 @@ import { SearchBar } from '@/components/search-bar';
 
 async function NewsList({
     page,
-    pageSize = 5,
-    search,
-    category,
+    pageSize = 10,
 }: {
     page: number;
     pageSize?: number;
-    search?: string;
-    category?: string;
 }) {
-    const { articles, total } = await newsService.getNews(
+    const { articles, total } = await ArticleService.getArticles(
         page,
         pageSize,
-        search,
-        category,
     );
     const totalPages = Math.ceil(total / pageSize);
 
@@ -36,25 +30,20 @@ async function NewsList({
     );
 }
 
-export default function DailyNewsPage({
+export default async function DailyNewsPage({
     searchParams,
 }: {
-    searchParams: { page?: string; search?: string; category?: string };
+    searchParams: { page?: string };
 }) {
-    const page = parseInt(searchParams.page || '1', 10);
-    const search = searchParams.search;
-    const category = searchParams.category;
-    const categories = newsService.getAllCategories();
+    const { page = '1' } = await searchParams;
+    const currentPage = parseInt(page, 10);
 
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-bold mb-8">Daily News</h1>
-            <SearchBar categories={categories} />
-            <Suspense
-                key={`${page}-${search}-${category}`}
-                fallback={<NewsSkeleton />}
-            >
-                <NewsList page={page} search={search} category={category} />
+            <SearchBar categories={[]} />
+            <Suspense key={currentPage} fallback={<NewsSkeleton />}>
+                <NewsList page={currentPage} />
             </Suspense>
         </div>
     );

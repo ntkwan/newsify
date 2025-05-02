@@ -25,7 +25,7 @@ This service provides an API to generate podcasts from news articles. It takes a
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt || python3 -m pip install -r requirements.txt
 ```
 
 4. Create a `.env` file with the following variables:
@@ -36,7 +36,7 @@ OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-4o
 OPENAI_TTS_MODEL=tts-1
 
-# Google Gemini API Settings  
+# Google Gemini API Settings
 GOOGLE_GEMINI_API_KEY=your_gemini_api_key
 GOOGLE_GEMINI_MODEL=gemini-1.5-pro-latest
 
@@ -80,25 +80,27 @@ POST /podcast?startTime=2025-04-18T00:00:00&endTime=2025-04-19T00:00:00
 ```
 
 Query Parameters:
+
 - `startTime`: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
 - `endTime`: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
 
 Response:
+
 ```json
 {
-  "url": "https://storage.example.com/podcasts/newsify-podcast-2025-04-18.mp3",
-  "transcript": "Welcome to Newsify Breaking News. Here are today's top stories...",
-  "timestampedTranscript": [
-    {
-      "startTime": 0,
-      "endTime": 5.2,
-      "text": "Welcome to Newsify Breaking News."
-    },
-    {
-      "startTime": 5.5,
-      "endTime": 10.8,
-      "text": "Here are today's top stories."
-    }
-  ]
+    "url": "https://storage.example.com/podcasts/newsify-podcast-2025-04-18.mp3",
+    "transcript": "Welcome to Newsify Breaking News. Here are today's top stories...",
+    "timestampedTranscript": [
+        {
+            "startTime": 0,
+            "endTime": 5.2,
+            "text": "Welcome to Newsify Breaking News."
+        },
+        {
+            "startTime": 5.5,
+            "endTime": 10.8,
+            "text": "Here are today's top stories."
+        }
+    ]
 }
 ```
