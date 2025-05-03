@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-Data Update Notification Script
-
 This script sends a notification to the Redis pub/sub system when your data pipeline
 has updated the processed data database. 
 

@@ -6,9 +6,17 @@ from pyspark.sql.functions import *
 from supabase import create_client, Client
 from datetime import datetime
 import pandas as pd
-import psycopg2
+import redis
+import json
+import pytz
 
 load_dotenv()
+
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_USERNAME = os.getenv("REDIS_USERNAME")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+REDIS_CHANNEL = os.getenv("REDIS_CHANNEL")
 
 def create_spark_session():
     spark = SparkSession.builder \
@@ -25,6 +33,48 @@ def create_spark_session():
     .getOrCreate()
         
     return spark
+
+def send_notification(update_type="articles", details=None):
+    """
+    Send a notification to the Redis pub/sub system.
+    
+    Args:
+        update_type (str): Type of update (articles, trending, podcasts)
+        details (dict): Additional details to include in the notification
+    """
+    try:
+        if REDIS_USERNAME and REDIS_PASSWORD:
+            r = redis.Redis(
+                host=REDIS_HOST,
+                port=REDIS_PORT,
+                username=REDIS_USERNAME,
+                password=REDIS_PASSWORD,
+                decode_responses=True
+            )
+        else:
+            r = redis.Redis(
+                host=REDIS_HOST,
+                port=REDIS_PORT,
+                decode_responses=True
+            )
+        
+        now = datetime.now(pytz.UTC).isoformat()
+        message = {
+            "update_type": update_type,
+            "timestamp": now,
+        }
+        
+        if details:
+            message["details"] = details
+            
+        r.publish(REDIS_CHANNEL, json.dumps(message))
+        print(f"Notification sent to channel {REDIS_CHANNEL}: {message}")
+        
+        r.close()
+        return True
+    except Exception as e:
+        print(f"Error sending notification: {str(e)}")
+        return False
 
 def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
     try:
@@ -117,9 +167,19 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
                 on_conflict=["url", "src"]
             ).execute()
             print(f"Successfully wrote {total_rows} records to Supabase table: {table_name}")
+            
+            details = {
+                "processed_rows": total_rows,
+                "table": table_name,
+                "service": "articles"
+            }
+            send_notification(update_type="articles", details=details)
+            print(f"Notification sent for {total_rows} new records")
+            
         except APIError as e:
             print(f"Error writing data into Supabase: {response.error}")
             return None
+            
         result_row = silver_df.agg(max("ingest_time").alias("max_ingest_time")).collect()[0]
         max_ingest_time = result_row["max_ingest_time"]    
         # max_ingest_time = silver_df.agg(max("ingest_time").alias("max_ingest_time")).collect()[0][max_ingest_time]       
@@ -146,5 +206,21 @@ if __name__ == "__main__":
     spark = create_spark_session()
     
     df = save_to_supabase(spark, s3_input_path, supabase_url, supabase_key, table_name)
+    
+    if df is not None:
+        details = {
+            "processed_rows": len(df),
+            "table": table_name,
+            "service": "articles"
+        }
+        send_notification(update_type="articles", details=details)
+    else:
+        details = {
+            "processed_rows": 0,
+            "table": table_name,
+            "service": "articles",
+            "message": "No new records to process"
+        }
+        send_notification(update_type="articles", details=details)
     
     spark.stop()
