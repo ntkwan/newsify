@@ -53,6 +53,13 @@ export class ArticleRepository {
         return this.articleModel.findByPk(id);
     }
 
+    async updateSummary(id: string, summary: string): Promise<void> {
+        await this.articleModel.update(
+            { summary: summary },
+            { where: { trendingId: id } },
+        );
+    }
+
     async findByCategory(
         category: string,
         page: number = 1,
