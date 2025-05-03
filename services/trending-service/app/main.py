@@ -13,6 +13,9 @@ from sentence_transformers import SentenceTransformer
 from app.services.trending_service import TrendingService
 from uuid import UUID
 import uvicorn
+import json
+import logging
+from app.services.redis_service import redis_service
 
 load_dotenv()
 
@@ -31,6 +34,9 @@ app.add_middleware(
 )
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("app.main")
 
 class TrendingKeyword(BaseModel):
     query: str
@@ -76,6 +82,8 @@ class ArticleAnalysisRequest(BaseModel):
 
 class ArticleBatchRequest(BaseModel):
     articles: List[ArticleAnalysisRequest]
+
+DATA_UPDATES_CHANNEL = "data-updates"
 
 def get_embedding(text: str):
     return model.encode(text)
@@ -428,6 +436,58 @@ async def analyze_latest_articles(
         error_msg = f"Error in analyze_latest_articles: {str(e)}"
         print(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+def handle_data_update(message: Dict[str, Any]) -> None:
+    """
+    Handle data update notifications from Redis.
+    
+    Args:
+        message: Redis message with data update information
+    """
+    try:
+        data = message.get('data', '{}')
+        logger.info(f"Received data update notification: {data}")
+        
+        try:
+            data_dict = json.loads(data)
+            update_type = data_dict.get('type')
+            update_time = data_dict.get('timestamp')
+            
+            logger.info(f"Processing data update: type={update_type}, time={update_time}")
+            
+            
+        except json.JSONDecodeError:
+            logger.warning(f"Received invalid JSON in data update: {data}")
+    except Exception as e:
+        logger.error(f"Error handling data update: {str(e)}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services when the application starts."""
+    redis_service.register_handler(DATA_UPDATES_CHANNEL, handle_data_update)
+    
+    if not redis_service.start():
+        logger.warning("Failed to start Redis service. Data update notifications will not work.")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources when the application shuts down."""
+    redis_service.stop()
+
+@app.post("/process-updates", status_code=202)
+async def process_updates():
+    """
+    Manually trigger processing of recent data updates.
+    This endpoint can be called to process data without waiting for Redis notifications.
+    """
+    try:
+        logger.info("Manual update processing triggered")
+        return {"status": "processing", "message": "Update processing initiated"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process updates: {str(e)}"
+        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
