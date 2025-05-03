@@ -25,8 +25,10 @@ class TranscriptLine(BaseModel):
 class PodcastResponse(BaseModel):
     """Model representing a response from the podcast generation API."""
     url: str = Field(..., description="URL to the generated podcast audio file")
+    title: str = Field(..., description="Title of the podcast")
     transcript: str = Field(..., description="Complete transcript of the podcast")
     timestampedTranscript: List[TranscriptLine] = Field(..., description="Transcript with timestamps for each line")
+    length_seconds: int = Field(..., description="Length of the podcast in seconds")
 
 
 class GeneratePodcastRequest(BaseModel):

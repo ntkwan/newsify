@@ -24,21 +24,6 @@ def create_tables():
         metadata.create_all(engine, tables=[podcasts_table])
         print("Table creation complete")
         
-        print("Checking if index on publish_date exists...")
-        result = connection.execute(text("""
-            SELECT indexname FROM pg_indexes 
-            WHERE indexname = 'ix_podcast_publish_date'
-            AND tablename = 'Podcast'
-        """))
-        
-        if not result.fetchone():
-            print("Creating index on publish_date column...")
-            connection.execute(text('CREATE INDEX ix_podcast_publish_date ON "Podcast" (publish_date)'))
-            connection.commit()
-            print("Index creation complete")
-        else:
-            print("Index on publish_date already exists")
-        
         connection.close()
         print("Database connection closed")
         

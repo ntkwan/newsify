@@ -311,7 +311,7 @@ Here's the transcript:
             db: Digital Ocean database session
             
         Returns:
-            Dictionary with url, transcript, and timestampedTranscript
+            Dictionary with url, title, transcript, and timestampedTranscript
         """
         if db is None:
             db = self._get_db_session()
@@ -413,16 +413,21 @@ Here's the transcript:
                 if newest_date is None:
                     newest_date = datetime.now()
                 
+                podcast_title = await self.generate_podcast_title(articles, newest_date)
+                
+                podcast_length = self.calculate_podcast_length(transcript_data["timestampedTranscript"])
+                
                 stmt = podcasts_table.insert().values(
                     publish_date=newest_date,
+                    title=podcast_title,
                     script=transcript_data["fullTranscript"],
                     timestamp_script=timestamped_script_json,
                     audio_url=uploaded_url,
-                    generated_date=func.now()
+                    length_seconds=podcast_length,
                 )
                 db.execute(stmt)
                 db.commit()
-                print(f"Podcast saved to database with publish_date {newest_date}")
+                print(f"Podcast saved to database with title '{podcast_title}' and publish_date {newest_date}")
             except Exception as db_error:
                 print(f"Error saving podcast to database: {str(db_error)}")
             
@@ -430,8 +435,10 @@ Here's the transcript:
             
             return {
                 "url": uploaded_url,
+                "title": podcast_title,
                 "transcript": transcript_data["fullTranscript"],
-                "timestampedTranscript": transcript_data["timestampedTranscript"]
+                "timestampedTranscript": transcript_data["timestampedTranscript"],
+                "length_seconds": podcast_length,
             }
             
         except Exception as e:
@@ -441,5 +448,54 @@ Here's the transcript:
                 pass
                 
             raise HTTPException(status_code=500, detail=f"Error generating podcast: {str(e)}")
+    
+    async def generate_podcast_title(self, articles: List[Article], date: datetime) -> str:
+        """
+        Generate a title for the podcast based on the articles and date.
+        
+        Args:
+            articles: List of articles to include in the podcast
+            date: Date of the podcast
+            
+        Returns:
+            Generated podcast title
+        """
+        try:
+            formatted_date = date.strftime("%B %d, %Y")
+            formatted_time = date.strftime("%I:%M %p")
+            
+            hour = date.hour
+            
+            if 5 <= hour < 12:
+                time_descriptor = "Morning"
+            elif 12 <= hour < 17:
+                time_descriptor = "Afternoon"
+            elif 17 <= hour < 21:
+                time_descriptor = "Evening"
+            else:
+                time_descriptor = "Night"
+                
+            title = f"Newsify {time_descriptor} Update - {formatted_date} {formatted_time}"
+            
+            return title
+            
+        except Exception as e:
+            print(f"Error generating podcast title: {str(e)}")
+            return f"Newsify News Update - {date.strftime('%Y-%m-%d %H:00')}"
+            
+    def calculate_podcast_length(self, timestamped_transcript: List[Dict[str, Any]]) -> int:
+        """
+        Calculate the length of the podcast in seconds based on the timestamped transcript.
+        
+        Args:
+            timestamped_transcript: List of transcript lines with timestamps
+            
+        Returns:
+            Length of the podcast in seconds
+        """
+        if not timestamped_transcript:
+            return 0
+            
+        return int(timestamped_transcript[-1]["endTime"])
 
 podcast_service = PodcastService() 

@@ -6,6 +6,7 @@ graph LR
   AppModule-->HttpModule
   AppModule-->MailerCoreModule
   AppModule-->MailerModule
+  AppModule-->PodcastsModule
   AppModule-->RedisCoreModule
   AppModule-->RedisModule
   AppModule-->SequelizeCoreModule
@@ -58,6 +59,12 @@ graph LR
   PassportModule-->MailerCoreModule
   PassportModule-->RedisCoreModule
   PassportModule-->SequelizeCoreModule
+  PodcastsModule-->ConfigHostModule
+  PodcastsModule-->ConfigModule
+  PodcastsModule-->MailerCoreModule
+  PodcastsModule-->RedisCoreModule
+  PodcastsModule-->SequelizeCoreModule
+  PodcastsModule-->SequelizeModule
   RedisCoreModule-->ConfigHostModule
   RedisCoreModule-->ConfigModule
   RedisCoreModule-->MailerCoreModule

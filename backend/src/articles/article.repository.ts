@@ -52,4 +52,26 @@ export class ArticleRepository {
     async findById(id: string): Promise<Article> {
         return this.articleModel.findByPk(id);
     }
+
+    async updateSummary(id: string, summary: string): Promise<void> {
+        await this.articleModel.update(
+            { summary: summary },
+            { where: { trendingId: id } },
+        );
+    }
+
+    async findByCategory(
+        category: string,
+        page: number = 1,
+        pageSize: number = 10,
+    ): Promise<{ rows: Article[]; count: number }> {
+        return this.articleModel.findAndCountAll({
+            where: {
+                mainCategory: category,
+            },
+            limit: pageSize,
+            offset: (page - 1) * pageSize,
+            order: [['publishDate', 'DESC']],
+        });
+    }
 }
