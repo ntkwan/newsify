@@ -1,9 +1,9 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { ArticlesService, PaginatedArticlesResult } from './articles.service';
+import { ArticlesService } from './articles.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DateRangePaginationDto } from './dtos/time-range.dto';
 import { PaginationDto } from './dtos/pagination.dto';
-import { PaginatedArticlesResponseDto } from './dtos/pagination-response.dto';
+import { PaginatedArticlesResponseDto } from './dtos/paginated-articles-response.dto';
 
 @Controller('articles')
 export class ArticlesController {
@@ -18,7 +18,7 @@ export class ArticlesController {
     @Get()
     async getAllArticles(
         @Query() paginationDto: PaginationDto,
-    ): Promise<PaginatedArticlesResult> {
+    ): Promise<PaginatedArticlesResponseDto> {
         return this.articlesService.getAllArticles(
             paginationDto.page,
             paginationDto.pageSize,
@@ -33,7 +33,7 @@ export class ArticlesController {
     @Get('time')
     async getArticlesByDateRangePaginated(
         @Query() query: DateRangePaginationDto,
-    ): Promise<PaginatedArticlesResult> {
+    ): Promise<PaginatedArticlesResponseDto> {
         return this.articlesService.getArticlesBetweenDatesWithPagination(
             query.startTime,
             query.endTime,

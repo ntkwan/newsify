@@ -1,57 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
-
-export interface Article {
-    url: string;
-    src: string;
-    language: string;
-    categories: string[];
-    title: string;
-    content: string;
-    image_url: string;
-    publish_date: string;
-    time: string;
-    timezone: string;
-    hour: number;
-    minute: number;
-    day: number;
-    month: string;
-    month_number: number;
-    year: number;
-    weekday: string;
-    time_reading: string;
-    author: string;
-}
-
-export interface PaginatedArticlesResult {
-    articles: Article[];
-    total: number;
-    page: number;
-    pageSize: number;
-}
+import { ArticleRepository } from './article.repository';
+import { Article } from './entities/article.model';
+import { PaginatedArticlesResponseDto } from './dtos/paginated-articles-response.dto';
+import { ArticleResponseDto } from './dtos/article-response.dto';
 
 @Injectable()
 export class ArticlesService {
-    private readonly dataDir = path.join(process.cwd(), '..', 'data');
+    constructor(private readonly articleRepository: ArticleRepository) {}
 
     async getAllArticles(
         page: number = 1,
         pageSize: number = 10,
-    ): Promise<PaginatedArticlesResult> {
-        const allArticles = await this.loadAllArticles();
-
-        const sortedArticles = this.sortArticlesByDate(allArticles);
-
-        const startIndex = (page - 1) * pageSize;
-        const paginatedArticles = sortedArticles.slice(
-            startIndex,
-            startIndex + pageSize,
+    ): Promise<PaginatedArticlesResponseDto> {
+        const { rows, count } = await this.articleRepository.findAndCountAll(
+            page,
+            pageSize,
         );
-
+        console.log(rows);
         return {
-            articles: paginatedArticles,
-            total: sortedArticles.length,
+            articles: this.transformArticles(rows),
+            total: count,
             page,
             pageSize,
         };
@@ -62,83 +30,47 @@ export class ArticlesService {
         endTime: string,
         page: number = 1,
         pageSize: number = 10,
-    ): Promise<PaginatedArticlesResult> {
-        const filteredArticles = await this.getArticlesBetweenDates(
-            startTime,
-            endTime,
-        );
+    ): Promise<PaginatedArticlesResponseDto> {
+        const startDate = new Date(startTime);
+        const endDate = new Date(endTime);
 
-        const sortedArticles = this.sortArticlesByDate(filteredArticles);
-
-        const startIndex = (page - 1) * pageSize;
-        const paginatedArticles = sortedArticles.slice(
-            startIndex,
-            startIndex + pageSize,
+        const { rows, count } = await this.articleRepository.findByDateRange(
+            startDate,
+            endDate,
+            page,
+            pageSize,
         );
 
         return {
-            articles: paginatedArticles,
-            total: filteredArticles.length,
+            articles: this.transformArticles(rows),
+            total: count,
             page,
             pageSize,
         };
     }
 
-    private async loadAllArticles(): Promise<Article[]> {
-        const files = await fs.promises.readdir(this.dataDir);
-        const jsonFiles = files.filter((file) => file.endsWith('.json'));
-
-        let allArticles: Article[] = [];
-
-        for (const file of jsonFiles) {
-            const filePath = path.join(this.dataDir, file);
-            try {
-                const fileContent = await fs.promises.readFile(
-                    filePath,
-                    'utf8',
-                );
-                const articles: Article[] = JSON.parse(fileContent);
-
-                if (Array.isArray(articles)) {
-                    allArticles = allArticles.concat(articles);
-                }
-            } catch (error) {
-                console.error(`Error reading file ${file}:`, error);
-            }
-        }
-
-        return allArticles;
-    }
-
-    private sortArticlesByDate(articles: Article[]): Article[] {
-        return [...articles].sort((a, b) => {
-            const dateA = new Date(
-                `${a.year}-${a.month_number}-${a.day} ${a.hour}:${a.minute}`,
-            );
-            const dateB = new Date(
-                `${b.year}-${b.month_number}-${b.day} ${b.hour}:${b.minute}`,
-            );
-            return dateB.getTime() - dateA.getTime(); // Newest first
+    private transformArticles(articles: Article[]): ArticleResponseDto[] {
+        return articles.map((article) => {
+            const formattedArticle = article.dataValues;
+            return {
+                trending_id: formattedArticle.trendingId,
+                article_id: formattedArticle.articleId,
+                url: formattedArticle.url,
+                image_url: formattedArticle.imageUrl,
+                categories: formattedArticle.categories || [],
+                main_category: formattedArticle.mainCategory || 'General',
+                title: formattedArticle.title,
+                trend: formattedArticle.trend,
+                //content: formattedArticle.content,
+                summary: formattedArticle.summary,
+                similarity_score: formattedArticle.similarityScore,
+                publish_date: formattedArticle.publishDate
+                    ? formattedArticle.publishDate.toISOString()
+                    : null,
+                analyzed_date: formattedArticle.analyzedDate
+                    ? formattedArticle.analyzedDate.toISOString()
+                    : null,
+            };
         });
-    }
-
-    async getArticlesBetweenDates(
-        startTime: string,
-        endTime: string,
-    ): Promise<Article[]> {
-        const startDate = new Date(startTime);
-        const endDate = new Date(endTime);
-
-        const allArticles = await this.loadAllArticles();
-
-        const filteredArticles = allArticles.filter((article) => {
-            const articleDate = new Date(
-                `${article.year}-${article.month_number}-${article.day} ${article.hour}:${article.minute}`,
-            );
-
-            return articleDate >= startDate && articleDate <= endDate;
-        });
-
-        return filteredArticles;
     }
 }

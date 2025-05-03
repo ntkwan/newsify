@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Article } from '../articles.service';
+import { Article } from '../entities/article.model';
 
 export class PaginatedArticlesResponseDto {
     @ApiProperty({
