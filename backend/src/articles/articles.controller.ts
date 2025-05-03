@@ -4,6 +4,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DateRangePaginationDto } from './dtos/time-range.dto';
 import { PaginationDto } from './dtos/pagination.dto';
 import { PaginatedArticlesResponseDto } from './dtos/paginated-articles-response.dto';
+import { CategoryPaginationDto } from './dtos/category-pagination.dto';
 
 @Controller('articles')
 export class ArticlesController {
@@ -24,6 +25,7 @@ export class ArticlesController {
             paginationDto.pageSize,
         );
     }
+
     @ApiOperation({ summary: 'Get articles by date range with pagination' })
     @ApiResponse({
         status: 200,
@@ -37,6 +39,23 @@ export class ArticlesController {
         return this.articlesService.getArticlesBetweenDatesWithPagination(
             query.startTime,
             query.endTime,
+            query.page,
+            query.pageSize,
+        );
+    }
+
+    @ApiOperation({ summary: 'Get articles by category with pagination' })
+    @ApiResponse({
+        status: 200,
+        description: 'Returns paginated articles filtered by main category',
+        type: PaginatedArticlesResponseDto,
+    })
+    @Get('category')
+    async getArticlesByCategory(
+        @Query() query: CategoryPaginationDto,
+    ): Promise<PaginatedArticlesResponseDto> {
+        return this.articlesService.getArticlesByCategory(
+            query.category,
             query.page,
             query.pageSize,
         );

@@ -49,6 +49,25 @@ export class ArticlesService {
         };
     }
 
+    async getArticlesByCategory(
+        category: string,
+        page: number = 1,
+        pageSize: number = 10,
+    ): Promise<PaginatedArticlesResponseDto> {
+        const { rows, count } = await this.articleRepository.findByCategory(
+            category,
+            page,
+            pageSize,
+        );
+
+        return {
+            articles: this.transformArticles(rows),
+            total: count,
+            page,
+            pageSize,
+        };
+    }
+
     private transformArticles(articles: Article[]): ArticleResponseDto[] {
         return articles.map((article) => {
             const formattedArticle = article.dataValues;
