@@ -12,6 +12,8 @@ import { HttpModule } from '@nestjs/axios';
 import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { ArticlesModule } from './articles/articles.module';
 import { Article } from './articles/entities/article.model';
+import { PodcastsModule } from './podcasts/podcasts.module';
+import { Podcast } from './podcasts/entities/podcast.model';
 
 @Module({
     imports: [
@@ -75,7 +77,7 @@ import { Article } from './articles/entities/article.model';
                     dialectModule: pg,
                     autoLoadModels: true,
                     synchronize: true,
-                    models: [User, Article],
+                    models: [User, Article, Podcast],
                     dialectOptions: isDevelopment
                         ? { ssl: { require: true, rejectUnauthorized: false } }
                         : { ssl: false },
@@ -87,6 +89,7 @@ import { Article } from './articles/entities/article.model';
         AuthModule,
         UsersModule,
         ArticlesModule,
+        PodcastsModule,
     ],
     controllers: [AppController],
     providers: [AppService],
