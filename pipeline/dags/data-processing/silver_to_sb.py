@@ -34,7 +34,7 @@ def create_spark_session():
         
     return spark
 
-def send_notification(update_type="articles", details=None):
+def send_notification(update_type="general", details=None):
     """
     Send a notification to the Redis pub/sub system.
     
@@ -171,9 +171,8 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
             details = {
                 "processed_rows": total_rows,
                 "table": table_name,
-                "service": "articles"
             }
-            send_notification(update_type="articles", details=details)
+            send_notification(update_type="general", details=details)
             print(f"Notification sent for {total_rows} new records")
             
         except APIError as e:
@@ -211,16 +210,14 @@ if __name__ == "__main__":
         details = {
             "processed_rows": len(df),
             "table": table_name,
-            "service": "articles"
         }
-        send_notification(update_type="articles", details=details)
+        send_notification(update_type="general", details=details)
     else:
         details = {
             "processed_rows": 0,
             "table": table_name,
-            "service": "articles",
             "message": "No new records to process"
         }
-        send_notification(update_type="articles", details=details)
+        send_notification(update_type="general", details=details)
     
     spark.stop()
