@@ -51,7 +51,7 @@ def send_notification(update_type="general"):
         print("Connected to Redis successfully")
         
         message = {
-            "type": update_type,
+            "update_type": update_type,
             "timestamp": datetime.datetime.now().isoformat(),
             "message": f"Data update of type '{update_type}' completed"
         }

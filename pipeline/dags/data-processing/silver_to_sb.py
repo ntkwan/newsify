@@ -188,7 +188,7 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
                 "processed_rows": total_rows,
                 "table": table_name,
             }
-            send_notification(update_type="general", details=details)
+            # send_notification(update_type="general", details=details)
             print(f"Notification sent for {total_rows} new records")
             
         except APIError as e:

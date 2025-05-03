@@ -450,7 +450,7 @@ def handle_data_update(message: Dict[str, Any]) -> None:
         
         try:
             data_dict = json.loads(data)
-            update_type = data_dict.get('type')
+            update_type = data_dict.get('update_type')
             update_time = data_dict.get('timestamp')
             
             logger.info(f"Processing data update: type={update_type}, time={update_time}")
