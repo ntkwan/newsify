@@ -35,13 +35,7 @@ def create_spark_session():
     return spark
 
 def send_notification(update_type="general", details=None):
-    """
-    Send a notification to the Redis pub/sub system.
-    
-    Args:
-        update_type (str): Type of update (articles, trending, podcasts)
-        details (dict): Additional details to include in the notification
-    """
+    r = None
     try:
         if REDIS_USERNAME and REDIS_PASSWORD:
             r = redis.Redis(
@@ -49,14 +43,20 @@ def send_notification(update_type="general", details=None):
                 port=REDIS_PORT,
                 username=REDIS_USERNAME,
                 password=REDIS_PASSWORD,
-                decode_responses=True
+                decode_responses=True,
+                socket_timeout=5,
+                socket_connect_timeout=5
             )
         else:
             r = redis.Redis(
                 host=REDIS_HOST,
                 port=REDIS_PORT,
-                decode_responses=True
+                decode_responses=True,
+                socket_timeout=5,
+                socket_connect_timeout=5
             )
+        
+        r.ping()
         
         now = datetime.now(pytz.UTC).isoformat()
         message = {
@@ -66,15 +66,31 @@ def send_notification(update_type="general", details=None):
         
         if details:
             message["details"] = details
-            
-        r.publish(REDIS_CHANNEL, json.dumps(message))
-        print(f"Notification sent to channel {REDIS_CHANNEL}: {message}")
         
-        r.close()
+        json_message = json.dumps(message)
+        result = r.publish(REDIS_CHANNEL, json_message)
+        print(f"Notification sent to channel {REDIS_CHANNEL}: {message}")
+        print(f"Delivery count: {result} listeners received the message")
+        
         return True
+    except redis.ConnectionError as e:
+        print(f"Redis connection error: {str(e)}")
+        print(f"Check Redis connection details: Host={REDIS_HOST}, Port={REDIS_PORT}")
+        return False
+    except redis.AuthenticationError as e:
+        print(f"Redis authentication error: {str(e)}")
+        print("Verify your username and password are correct")
+        return False
     except Exception as e:
         print(f"Error sending notification: {str(e)}")
         return False
+    finally:
+        # Close connection in finally block to ensure it always happens
+        if r:
+            try:
+                r.close()
+            except:
+                pass
 
 def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
     try:
