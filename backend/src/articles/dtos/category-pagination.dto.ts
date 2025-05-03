@@ -1,14 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import {
+    IsString,
+    IsOptional,
+    IsInt,
+    Min,
+    IsEnum,
+    IsNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { AVAILABLE_CATEGORIES } from '../constants/categories';
 
 export class CategoryPaginationDto {
     @ApiProperty({
         description: 'The main category to filter by',
         example: 'Technology',
         required: true,
+        enum: AVAILABLE_CATEGORIES,
     })
+    @IsNotEmpty()
     @IsString()
+    @IsEnum(AVAILABLE_CATEGORIES, {
+        message: 'category must be one of the available categories',
+    })
     category: string;
 
     @ApiProperty({

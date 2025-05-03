@@ -50,7 +50,7 @@ export class ArticlesController {
         description: 'Returns paginated articles filtered by main category',
         type: PaginatedArticlesResponseDto,
     })
-    @Get('category')
+    @Get('categories')
     async getArticlesByCategory(
         @Query() query: CategoryPaginationDto,
     ): Promise<PaginatedArticlesResponseDto> {
