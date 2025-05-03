@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { DatePicker } from '@/components/ui/date-picker';
 import PodcastEpisode from '@/components/podcast-episode';
+import { PodcastPlayer } from '@/components/podcast-player';
 
 interface Episode {
     id: number;
@@ -54,14 +55,26 @@ const DailyRecapPage: React.FC = () => {
             <div className="bg-gray-100 rounded-lg p-6 mb-8">
                 <div className="space-y-4">
                     <div className="flex justify-between items-start">
-                        <div>
-                            <div className="text-sm text-gray-500">
-                                New Release • April 17, 2023 (06:00 am GMT+7)
-                            </div>
-                            <h2 className="text-xl font-bold">
-                                The Daily Brief – April 17, 2023
-                            </h2>
-                        </div>
+                        <PodcastPlayer
+                            title="Điểm tin 6h"
+                            description="Hàn Quốc có quyền Tổng thống mới sau khi hai lãnh đạo liên tiếp từ chức; Ông Trump tiết lộ điều đã nói với ông Zelensky tại Vatican..."
+                            thumbnail="https://i1-vnexpress.vnecdn.net/2025/05/02/c536969e59a04ab5a19aee2f9509e2-9862-5570-1746140046.png"
+                            audioUrl="https://v.vnecdn.net/vnexpress/video/audio/2025/05/02/diem-tin-6h.mp3"
+                            author="Quảng Hường"
+                            publishDate="Thứ sáu, 2/5/2025, 06:12 (GMT+7)"
+                            duration={427}
+                            chapters={[
+                                {
+                                    time: 12,
+                                    title: 'Tổng Bí thư làm Trưởng ban Chỉ đạo Trung ương về hoàn thiện thể chế, pháp luật',
+                                },
+                                {
+                                    time: 91,
+                                    title: 'Các đoàn diễu binh rời miền Nam về đơn vị',
+                                },
+                                // ... các chương khác
+                            ]}
+                        />
                         <div className="bg-[#01aa4f] text-white rounded-lg p-2 text-center">
                             <div className="font-bold">BẢN TIN THỜI SỰ</div>
                             <div className="text-xl font-bold">07:00</div>

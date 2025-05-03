@@ -1,13 +1,12 @@
-import type React from 'react';
+import { Article } from '@/types/article';
 import Image from 'next/image';
 import Link from 'next/link';
-import { INewsArticle } from '../types/news';
 
 interface NewsArticleProps {
-    article: INewsArticle;
+    article: Article;
 }
 
-const NewsArticle: React.FC<NewsArticleProps> = ({ article }) => {
+export default function NewsArticle({ article }: NewsArticleProps) {
     const formatDate = () => {
         if (article.time && article.timezone) {
             return `${article.time} ${article.timezone}`;
@@ -49,6 +48,4 @@ const NewsArticle: React.FC<NewsArticleProps> = ({ article }) => {
             </div>
         </div>
     );
-};
-
-export default NewsArticle;
+}
