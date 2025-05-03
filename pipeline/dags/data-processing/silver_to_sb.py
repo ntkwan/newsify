@@ -43,6 +43,7 @@ def send_notification(update_type="general", details=None):
                 port=REDIS_PORT,
                 username=REDIS_USERNAME,
                 password=REDIS_PASSWORD,
+                ssl=True,
                 decode_responses=True,
                 socket_timeout=5,
                 socket_connect_timeout=5
