@@ -1,49 +1,51 @@
 import { Suspense } from 'react';
 import { ArticleService } from '@/services/article.service';
-import NewsArticle from '@/components/news-article';
-import NewsSkeleton from '@/components/news-skeleton';
+import NewsList from '@/components/news-list';
 import Pagination from '@/components/pagination';
-import { SearchBar } from '@/components/search-bar';
+import Loading from './loading';
 
-async function NewsList({
+async function NewsListWrapper({
     page,
-    pageSize = 10,
+    search,
+    date,
 }: {
     page: number;
-    pageSize?: number;
+    search?: string;
+    date?: string;
 }) {
-    const { articles, total } = await ArticleService.getArticles(
-        page,
-        pageSize,
-    );
-    const totalPages = Math.ceil(total / pageSize);
-
+    const response = await ArticleService.getArticles(page, 10, search, date);
     return (
-        <div className="space-y-6">
-            <div className="space-y-6">
-                {articles.map((article) => (
-                    <NewsArticle key={article.url} article={article} />
-                ))}
-            </div>
-            <Pagination totalPages={totalPages} />
-        </div>
+        <>
+            <NewsList articles={response.articles} />
+            <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(response.total / 10)}
+                totalItems={response.total}
+            />
+        </>
     );
 }
 
 export default async function DailyNewsPage({
     searchParams,
 }: {
-    searchParams: { page?: string };
+    searchParams: { page?: string; search?: string; date?: string };
 }) {
-    const { page = '1' } = await searchParams;
-    const currentPage = parseInt(page, 10);
+    const { page = '1', search = '', date = '' } = await searchParams;
+    const currentPage = Number(page);
 
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-bold mb-8">Daily News</h1>
-            <SearchBar categories={[]} />
-            <Suspense key={currentPage} fallback={<NewsSkeleton />}>
-                <NewsList page={currentPage} />
+            <Suspense
+                key={`${currentPage}-${search}-${date}`}
+                fallback={<Loading />}
+            >
+                <NewsListWrapper
+                    page={currentPage}
+                    search={search}
+                    date={date}
+                />
             </Suspense>
         </div>
     );

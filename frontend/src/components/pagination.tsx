@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 interface PaginationProps {
+    currentPage: number;
     totalPages: number;
+    totalItems: number;
 }
 
 export default function Pagination({ totalPages }: PaginationProps) {
