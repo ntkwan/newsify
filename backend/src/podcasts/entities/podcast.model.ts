@@ -1,7 +1,7 @@
 import { Column, Model, Table, DataType } from 'sequelize-typescript';
 
 @Table({
-    tableName: 'Podcasts',
+    tableName: 'Podcast',
     timestamps: false,
     schema: 'public',
     modelName: 'Podcast',
