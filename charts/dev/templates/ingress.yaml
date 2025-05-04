@@ -1,5 +1,5 @@
 {{- range $name, $config := .Values.services }}
-{{- if and (hasKey $config "ingress") $config.ingress.enabled }}
+{{- if and $config.ingress $config.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -8,10 +8,6 @@ metadata:
   namespace: {{ $.Values.namespace }}
   labels:
     name: {{ $config.containerName }}-ingress
-  annotations:
-    {{- with $config.ingress.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 spec:
   ingressClassName: nginx
   rules:
@@ -19,11 +15,11 @@ spec:
     http:
       paths:
       - pathType: Prefix
-        path: {{ $config.ingress.path | default "/" }}
+        path: "/"
         backend:
           service:
             name: {{ $config.containerName }}
             port:
               number: {{ $config.port }}
 {{- end }}
-{{- end }} 
+{{- end }}

@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: newsify-ingress-dev
+  namespace: newsify-dev
+  labels:
+    name: newsify-ingress-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx 
+
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: newsify.dev
+      http:
+        paths:
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: newsify-backend
+                port:
+                  number: 8080
+          - path: "/audio"
+            pathType: Prefix
+            backend:
+              service:
+                name: audio-service
+                port:
+                  number: 8000
+          - path: "/trending"
+            pathType: Prefix
+            backend:
+              service:
+                name: trending-service
+                port:
