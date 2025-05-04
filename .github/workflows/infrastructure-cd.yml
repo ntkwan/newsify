@@ -3,12 +3,11 @@ name: Update Infrastructure Configuration
 on:
   workflow_run:
     workflows:
-      - Backend Service CD
-      - Audio Service CD
-      - Trending Service CD
+        - "backend-cd.yml"
+        - "audio-service-cd.yml"
+        - "trending-service-cd.yml"
     types:
-      - completed
-  workflow_dispatch:  # Allow manual triggering
+        - completed
 
 jobs:
   update-infrastructure:
