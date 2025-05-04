@@ -3,9 +3,7 @@ name: Backend Service CD
 on:
   push:
     branches: [ main, dev, 'quan/feature/be/cd' ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-cd.yml'
+
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

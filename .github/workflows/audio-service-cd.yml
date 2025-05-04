@@ -3,10 +3,7 @@ name: Audio Service CD
 on:
   push:
     branches: [ main, dev, 'quan/feature/be/cd' ]
-    paths:
-      - 'audio-service/**'
-      - 'services/audio-service/**'
-      - '.github/workflows/audio-service-cd.yml'
+
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
