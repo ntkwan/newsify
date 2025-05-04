@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/ntkwan/newsify.git
+    repoURL: git@github.com:ntkwan/newsify.git
     path: charts/dev
     targetRevision: infrastructure
   destination:
