@@ -16,7 +16,7 @@ export default function NewsArticle({ article }: NewsArticleProps) {
         });
     };
 
-    const articleUrl = `/article/${article.article_id}?title=${encodeURIComponent(article.title)}&summary=${encodeURIComponent(article.summary)}&image_url=${encodeURIComponent(article.image_url)}&main_category=${encodeURIComponent(article.main_category)}&publish_date=${encodeURIComponent(article.publish_date)}${article.url ? `&url=${encodeURIComponent(article.url)}` : ''}`;
+    const articleUrl = `/articles/${article.trending_id}`;
 
     return (
         <div className="flex flex-col md:flex-row gap-4 border-b border-gray-200 pb-6">

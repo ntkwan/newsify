@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { ArticleService } from '@/services/article.service';
 import NewsList from '@/components/news-list';
 import Pagination from '@/components/pagination';
-import Loading from './loading';
+import Loading from '../articles/loading';
 
 async function NewsListWrapper({
     page,
