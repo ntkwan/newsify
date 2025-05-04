@@ -57,18 +57,16 @@ jobs:
           # Get short commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
           
-          # Determine the tag based on branch
-          # Get short commit SHA
-          SHORT_SHA=$(git rev-parse --short HEAD)
+          # Extract branch name from GITHUB_REF
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
           
           # Determine the tag based on branch
-          if [[ $GITHUB_REF == refs/heads/main ]]; then
+          if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
           else
-            # For other branches, use branch name + commit SHA
-            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+            # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
@@ -79,3 +77,11 @@ jobs:
           context: ./services/trending-service
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:${{ steps.determine_tag.outputs.tag }}
+          build-args: |
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_USER=${{ secrets.REDIS_USER }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
+            OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}

@@ -51,14 +51,16 @@ jobs:
           # Get short commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
           
+          # Extract branch name from GITHUB_REF
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          
           # Determine the tag based on branch
-          if [[ $GITHUB_REF == refs/heads/main ]]; then
+          if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
           else
-            # For other branches (like quan/feature/be/cd), use branch name + commit SHA
-            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+            # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
@@ -69,3 +71,26 @@ jobs:
           context: ./backend
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:${{ steps.determine_tag.outputs.tag }}
+          build-args: |
+            SERVER_PORT=${{ secrets.SERVER_PORT || '8080' }}
+            ENV=${{ secrets.ENV || 'development' }}
+            DO_DB_NAME=${{ secrets.DO_DB_NAME }}
+            DO_DB_PORT=${{ secrets.DO_DB_PORT }}
+            DO_DB_HOST=${{ secrets.DO_DB_HOST }}
+            DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
+            DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}
+            SALT=${{ secrets.SALT }}
+            AT_SECRET=${{ secrets.AT_SECRET }}
+            RT_SECRET=${{ secrets.RT_SECRET }}
+            MAIL_HOST=${{ secrets.MAIL_HOST }}
+            MAIL_PORT=${{ secrets.MAIL_PORT }}
+            MAIL_USER=${{ secrets.MAIL_USER }}
+            MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+            MAIL_FROM=${{ secrets.MAIL_FROM }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_USER=${{ secrets.REDIS_USER }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
+            OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
