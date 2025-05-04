@@ -7,42 +7,39 @@ interface NewsArticleProps {
 }
 
 export default function NewsArticle({ article }: NewsArticleProps) {
-    const formatDate = () => {
-        if (article.time && article.timezone) {
-            return `${article.time} ${article.timezone}`;
-        }
-        return article.publish_date;
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
     };
+
+    const articleUrl = `/article/${article.article_id}?title=${encodeURIComponent(article.title)}&summary=${encodeURIComponent(article.summary)}&image_url=${encodeURIComponent(article.image_url)}&main_category=${encodeURIComponent(article.main_category)}&publish_date=${encodeURIComponent(article.publish_date)}${article.url ? `&url=${encodeURIComponent(article.url)}` : ''}`;
 
     return (
         <div className="flex flex-col md:flex-row gap-4 border-b border-gray-200 pb-6">
             <div className="md:w-1/4 flex-shrink-0">
-                <Image
-                    src={article.image_url || '/placeholder.svg'}
-                    alt={article.title}
-                    width={180}
-                    height={120}
-                    className="rounded-lg w-full h-auto object-cover"
-                />
+                <Link href={articleUrl}>
+                    <Image
+                        src={article.image_url || '/placeholder.svg'}
+                        alt={article.title}
+                        width={180}
+                        height={120}
+                        className="rounded-lg w-full h-auto object-cover"
+                    />
+                </Link>
             </div>
             <div className="md:w-3/4">
-                <Link
-                    href={article.url}
-                    className="block group"
-                    target="_blank"
-                >
+                <Link href={articleUrl} className="block group">
                     <h3 className="font-bold text-lg mb-2 group-hover:text-[#01aa4f] transition-colors">
                         {article.title}
                     </h3>
-                    <p className="text-gray-600 text-sm mb-2 line-clamp-3">
-                        {article.content}
-                    </p>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{article.author}</span>
+                        <span>{article.main_category}</span>
                         <span>•</span>
-                        <span>{article.time_reading}</span>
-                        <span>•</span>
-                        <span>{formatDate()}</span>
+                        <span>{formatDate(article.publish_date)}</span>
                     </div>
                 </Link>
             </div>
