@@ -8,14 +8,32 @@ metadata:
   namespace: {{ $.Values.namespace }}
   labels:
     name: {{ $config.containerName }}-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts:
+    - {{ $config.ingress.host }}
+    secretName: {{ $config.containerName }}-tls
   rules:
   - host: {{ $config.ingress.host }}
     http:
       paths:
       - pathType: Prefix
         path: "/"
+        backend:
+          service:
+            name: {{ $config.containerName }}
+            port:
+              number: {{ $config.port }}
+  # Add a rule without host specification
+  - http:
+      paths:
+      - path: "/api"
+        pathType: Prefix
         backend:
           service:
             name: {{ $config.containerName }}
