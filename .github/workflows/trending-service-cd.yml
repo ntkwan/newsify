@@ -32,7 +32,7 @@ jobs:
       - name: Test uvicorn server launch
         working-directory: ./services/trending-service
         run: |
-          uvicorn main:app --host 0.0.0.0 --port 8001 &
+          uvicorn trending_service.main:app --host 0.0.0.0 --port 8001 &
           sleep 5
           curl -s http://localhost:8001/health || curl -s http://localhost:8001/ || true
           pkill -f uvicorn || true
