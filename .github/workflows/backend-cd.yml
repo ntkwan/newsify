@@ -2,16 +2,42 @@ name: Backend Service CD
 
 on:
   push:
-    branches: [ main, dev, 'quan/feature/be/cd' ]
+    branches: [ main ]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-cd.yml'
-  workflow_dispatch:  
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+          cache-dependency-path: 'backend/pnpm-lock.yaml'
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: pnpm install
+      
+      - name: Build application
+        working-directory: ./backend
+        run: pnpm build
     
+  docker-build-and-push:
+    needs: build
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
