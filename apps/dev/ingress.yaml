@@ -11,10 +11,10 @@ spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - newsify.dev
-    secretName: newsify-tls
+    - backend.id.vn
+    secretName: backend-id-vn-tls
   rules:
-  - host: newsify.dev
+  - host: backend.id.vn
     http:
       paths:
       - path: "/"
@@ -38,13 +38,3 @@ spec:
             name: audio-service
             port:
               number: 8000
-  # Rule without host specification
-  - http:
-      paths:
-      - path: "/"
-        pathType: Prefix
-        backend:
-          service:
-            name: newsify-backend
-            port:
-              number: 8080
