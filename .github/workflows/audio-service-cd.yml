@@ -1,6 +1,11 @@
 name: Audio Service CD
 
-on: [push]
+on:
+  push:
+    paths:
+      - 'services/audio-service/**'
+      - '.github/workflows/audio-service-cd.yml'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -53,14 +58,16 @@ jobs:
           # Get short commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
           
+          # Extract branch name from GITHUB_REF
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          
           # Determine the tag based on branch
-          if [[ $GITHUB_REF == refs/heads/main ]]; then
+          if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
           else
-            # For other branches, use branch name + commit SHA
-            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+            # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
@@ -71,3 +78,27 @@ jobs:
           context: ./services/audio-service
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:${{ steps.determine_tag.outputs.tag }}
+          build-args: |
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
+            OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
+            OPENAI_TTS_MODEL=${{ secrets.OPENAI_TTS_MODEL }}
+            OPENAI_TRANSCRIPTION_MODEL=${{ secrets.OPENAI_TRANSCRIPTION_MODEL }}
+            OPENAI_TEMPERATURE=${{ secrets.OPENAI_TEMPERATURE }}
+            GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}
+            GOOGLE_GEMINI_MODEL=${{ secrets.GOOGLE_GEMINI_MODEL }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DATABASE=${{ secrets.DATABASE }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_DIALECT=${{ secrets.DB_DIALECT }}
+            DO_DB_NAME=${{ secrets.DO_DB_NAME }}
+            DO_DB_PORT=${{ secrets.DO_DB_PORT }}
+            DO_DB_HOST=${{ secrets.DO_DB_HOST }}
+            DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
+            DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}
+            DO_SPACES_ACCESS_KEY=${{ secrets.DO_SPACES_ACCESS_KEY }}
+            DO_SPACES_SECRET_KEY=${{ secrets.DO_SPACES_SECRET_KEY }}
+            DO_SPACES_BUCKET=${{ secrets.DO_SPACES_BUCKET }}
+            DO_SPACES_ENDPOINT=${{ secrets.DO_SPACES_ENDPOINT }}

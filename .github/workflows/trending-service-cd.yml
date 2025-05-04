@@ -57,18 +57,16 @@ jobs:
           # Get short commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
           
-          # Determine the tag based on branch
-          # Get short commit SHA
-          SHORT_SHA=$(git rev-parse --short HEAD)
+          # Extract branch name from GITHUB_REF
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
           
           # Determine the tag based on branch
-          if [[ $GITHUB_REF == refs/heads/main ]]; then
+          if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
           else
-            # For other branches, use branch name + commit SHA
-            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+            # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
@@ -79,3 +77,17 @@ jobs:
           context: ./services/trending-service
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:${{ steps.determine_tag.outputs.tag }}
+          build-args: |
+            SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}
+            DATA_PATH=/app/data
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DATABASE=${{ secrets.DATABASE }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_DIALECT=${{ secrets.DB_DIALECT }}
+            DO_DB_NAME=${{ secrets.DO_DB_NAME }}
+            DO_DB_PORT=${{ secrets.DO_DB_PORT }}
+            DO_DB_HOST=${{ secrets.DO_DB_HOST }}
+            DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
+            DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}
