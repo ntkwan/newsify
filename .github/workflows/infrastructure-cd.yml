@@ -1,14 +1,17 @@
 name: Update Infrastructure Configuration
 
 on:
-  workflow_run:
-    workflows:
-      - Backend Service CD
-      - Audio Service CD
-      - Trending Service CD
-    types:
-      - completed
-  workflow_dispatch:  # Allow manual triggering
+    workflow_run:
+      workflows:
+        - "Backend Service CD"
+        - "Audio Service CD" 
+        - "Trending Service CD"
+      types:
+        - completed
+      branches:
+        - main
+        - dev
+    workflow_dispatch:  # Allow manual triggering
 
 jobs:
   update-infrastructure:

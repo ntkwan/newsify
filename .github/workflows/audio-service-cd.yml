@@ -1,11 +1,6 @@
 name: Audio Service CD
 
-on:
-  push:
-    paths:
-      - 'services/audio-service/**'
-      - '.github/workflows/audio-service-cd.yml'
-  workflow_dispatch:
+on: [push]
 
 jobs:
   build:
