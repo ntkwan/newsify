@@ -1,0 +1,101 @@
+name: Update Infrastructure Configuration
+
+on:
+  workflow_run:
+    workflows:
+      - Backend Service CD
+      - Audio Service CD
+      - Trending Service CD
+    types:
+      - completed
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update-infrastructure:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get source branch and commit info
+        id: source_info
+        run: |
+          # Extract the source branch name from the triggering workflow
+          SOURCE_BRANCH="${{ github.event.workflow_run.head_branch }}"
+          echo "SOURCE_BRANCH=${SOURCE_BRANCH}" >> $GITHUB_ENV
+          
+          # Extract the commit SHA from the workflow run
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
+          
+          # Determine the environment (dev/prod) based on the branch
+          if [[ "$SOURCE_BRANCH" == "main" ]]; then
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "TAG=latest" >> $GITHUB_ENV
+          elif [[ "$SOURCE_BRANCH" == "dev" ]]; then
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "TAG=dev-${SHORT_SHA}" >> $GITHUB_ENV
+          else
+            # For feature branches
+            echo "ENV=dev" >> $GITHUB_ENV
+            # Extract the branch name, replace / with -
+            SAFE_BRANCH_NAME=$(echo $SOURCE_BRANCH | sed 's/\//-/g')
+            echo "TAG=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_ENV
+          fi
+          
+          # Determine which service was updated
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          if [[ "$WORKFLOW_NAME" == *"Backend"* ]]; then
+            echo "SERVICE=backend" >> $GITHUB_ENV
+          elif [[ "$WORKFLOW_NAME" == *"Audio"* ]]; then
+            echo "SERVICE=audio-service" >> $GITHUB_ENV
+          elif [[ "$WORKFLOW_NAME" == *"Trending"* ]]; then
+            echo "SERVICE=trending-service" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout infrastructure branch
+        uses: actions/checkout@v3
+        with:
+          ref: infrastructure
+          token: ${{ secrets.ARGOCD_GITHUB_TOKEN }}  # Use a token with write permissions
+      
+      - name: Configure Git
+        run: |
+          git config user.name "ArgoCD Bot"
+          git config user.email "argocd-bot@example.com"
+      
+      - name: Update image tag in Helm values
+        run: |
+          echo "Updating $SERVICE in charts/$ENV/values.yaml to tag: $TAG"
+          
+          # Check if values.yaml exists
+          if [[ ! -f "charts/$ENV/values.yaml" ]]; then
+            echo "Error: charts/$ENV/values.yaml does not exist!"
+            exit 1
+          fi
+          
+          # Update the tag in values.yaml for the specific service
+          if [[ "$SERVICE" == "backend" ]]; then
+            yq -i '.services.backend.tag = env(TAG)' "charts/$ENV/values.yaml" || \
+            sed -i "s/\(backend:.*\n.*containerName:.*\n.*image:.*\n.*tag:\).*/\1 $TAG/" "charts/$ENV/values.yaml"
+          elif [[ "$SERVICE" == "audio-service" ]]; then
+            yq -i '.services."audio-service".tag = env(TAG)' "charts/$ENV/values.yaml" || \
+            sed -i "s/\(audio-service:.*\n.*containerName:.*\n.*image:.*\n.*tag:\).*/\1 $TAG/" "charts/$ENV/values.yaml"
+          elif [[ "$SERVICE" == "trending-service" ]]; then
+            yq -i '.services."trending-service".tag = env(TAG)' "charts/$ENV/values.yaml" || \
+            sed -i "s/\(trending-service:.*\n.*containerName:.*\n.*image:.*\n.*tag:\).*/\1 $TAG/" "charts/$ENV/values.yaml"
+          fi
+          
+          # Show the diff for debugging
+          git diff
+      
+      - name: Commit and push if there are changes
+        run: |
+          # Check if there are changes to commit
+          if [[ -z $(git status --porcelain) ]]; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add charts/$ENV/values.yaml
+          git commit -m "Update $SERVICE image tag to $TAG (from branch $SOURCE_BRANCH) [skip ci]"
+          git push
