@@ -128,7 +128,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
                     max={podcast.length_seconds}
                     step={1}
                     onValueChange={handleSeek}
-                    className="h-1 hover:cursor-pointer group [&>div:first-child]:bg-[#01aa4f] [&>div:last-child]:bg-blue-500"
+                    className="h-1 hover:cursor-pointer"
                 />
             </div>
 
