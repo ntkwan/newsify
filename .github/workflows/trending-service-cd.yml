@@ -78,10 +78,15 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:${{ steps.determine_tag.outputs.tag }}
           build-args: |
-            REDIS_HOST=${{ secrets.REDIS_HOST }}
-            REDIS_PORT=${{ secrets.REDIS_PORT }}
-            REDIS_USER=${{ secrets.REDIS_USER }}
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-            OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
-            OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
+            SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DATABASE=${{ secrets.DATABASE }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_DIALECT=${{ secrets.DB_DIALECT }}
+            DO_DB_NAME=${{ secrets.DO_DB_NAME }}
+            DO_DB_PORT=${{ secrets.DO_DB_PORT }}
+            DO_DB_HOST=${{ secrets.DO_DB_HOST }}
+            DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
+            DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}

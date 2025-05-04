@@ -74,7 +74,26 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:${{ steps.determine_tag.outputs.tag }}
           build-args: |
-            REDIS_HOST=${{ secrets.REDIS_HOST }}
-            REDIS_PORT=${{ secrets.REDIS_PORT }}
-            REDIS_USER=${{ secrets.REDIS_USER }}
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
+            OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
+            OPENAI_TTS_MODEL=${{ secrets.OPENAI_TTS_MODEL }}
+            OPENAI_TRANSCRIPTION_MODEL=${{ secrets.OPENAI_TRANSCRIPTION_MODEL }}
+            OPENAI_TEMPERATURE=${{ secrets.OPENAI_TEMPERATURE }}
+            GOOGLE_GEMINI_API_KEY=${{ secrets.GOOGLE_GEMINI_API_KEY }}
+            GOOGLE_GEMINI_MODEL=${{ secrets.GOOGLE_GEMINI_MODEL }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DATABASE=${{ secrets.DATABASE }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_DIALECT=${{ secrets.DB_DIALECT }}
+            DO_DB_NAME=${{ secrets.DO_DB_NAME }}
+            DO_DB_PORT=${{ secrets.DO_DB_PORT }}
+            DO_DB_HOST=${{ secrets.DO_DB_HOST }}
+            DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
+            DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}
+            DO_SPACES_ACCESS_KEY=${{ secrets.DO_SPACES_ACCESS_KEY }}
+            DO_SPACES_SECRET_KEY=${{ secrets.DO_SPACES_SECRET_KEY }}
+            DO_SPACES_BUCKET=${{ secrets.DO_SPACES_BUCKET }}
+            DO_SPACES_ENDPOINT=${{ secrets.DO_SPACES_ENDPOINT }}

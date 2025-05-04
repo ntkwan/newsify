@@ -1,5 +1,32 @@
 FROM python:3.11-slim
 
+ARG SERPAPI_API_KEY
+ARG DB_NAME
+ARG DB_PORT
+ARG DATABASE
+ARG DB_USERNAME
+ARG DB_PASSWORD
+ARG DB_DIALECT
+ARG DO_DB_NAME
+ARG DO_DB_PORT
+ARG DO_DB_HOST
+ARG DO_DB_USERNAME
+ARG DO_DB_PASSWORD
+
+ENV SERPAPI_API_KEY=${SERPAPI_API_KEY}
+ENV DATA_PATH=${DATA_PATH}
+ENV DB_NAME=${DB_NAME}
+ENV DB_PORT=${DB_PORT}
+ENV DATABASE=${DATABASE}
+ENV DB_USERNAME=${DB_USERNAME}
+ENV DB_PASSWORD=${DB_PASSWORD}
+ENV DB_DIALECT=${DB_DIALECT}
+ENV DO_DB_NAME=${DO_DB_NAME}
+ENV DO_DB_PORT=${DO_DB_PORT}
+ENV DO_DB_HOST=${DO_DB_HOST}
+ENV DO_DB_USERNAME=${DO_DB_USERNAME}
+ENV DO_DB_PASSWORD=${DO_DB_PASSWORD}
+
 WORKDIR /app
 
 RUN echo ".env\n__pycache__\n*.pyc\n*.pyo\n*.pyd\n.Python\n.coverage\nenv/\nvenv/\n.git/\n.gitignore" > .dockerignore
@@ -9,4 +36,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
