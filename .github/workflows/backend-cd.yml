@@ -49,35 +49,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Generate Docker tags
-        id: meta
+      - name: Determine image tag
+        id: determine_tag
         run: |
           # Get short commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
           
-          # Initialize tags array
-          TAGS=""
-          
-          # Configure tags based on branch
+          # Determine the tag based on branch
           if [[ $GITHUB_REF == refs/heads/main ]]; then
-            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:latest"
+            echo "tag=latest" >> $GITHUB_OUTPUT
           elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:dev-${SHORT_SHA}"
+            echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
           else
-            # For other branches (like quan/feature/be/cd), use branch name and SHA
+            # For other branches (like quan/feature/be/cd), use branch name
             BRANCH_NAME=${GITHUB_REF#refs/heads/}
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
-            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:${SAFE_BRANCH_NAME}-${SHORT_SHA}"
+            echo "tag=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
-          
-          # Set output for build step
-          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
       
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: ./backend
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:buildcache,mode=max
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-backend:${{ steps.determine_tag.outputs.tag }}

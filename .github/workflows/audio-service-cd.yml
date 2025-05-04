@@ -51,35 +51,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Generate Docker tags
-        id: meta
+      - name: Determine image tag
+        id: determine_tag
         run: |
           # Get short commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
           
-          # Initialize tags array
-          TAGS=""
-          
-          # Configure tags based on branch
+          # Determine the tag based on branch
           if [[ $GITHUB_REF == refs/heads/main ]]; then
-            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:latest"
+            echo "tag=latest" >> $GITHUB_OUTPUT
           elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:dev-${SHORT_SHA}"
+            echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
           else
-            # For other branches, use branch name and SHA
+            # For other branches, use branch name
             BRANCH_NAME=${GITHUB_REF#refs/heads/}
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
-            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:${SAFE_BRANCH_NAME}-${SHORT_SHA}"
+            echo "tag=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
-          
-          # Set output for build step
-          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
       
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: ./services/audio-service
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:buildcache,mode=max
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:${{ steps.determine_tag.outputs.tag }}
