@@ -91,3 +91,8 @@ jobs:
             DO_DB_HOST=${{ secrets.DO_DB_HOST }}
             DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
             DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_USER=${{ secrets.REDIS_USER }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_CHANNEL=${{ secrets.REDIS_CHANNEL }}

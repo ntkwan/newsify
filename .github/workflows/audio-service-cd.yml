@@ -102,3 +102,8 @@ jobs:
             DO_SPACES_SECRET_KEY=${{ secrets.DO_SPACES_SECRET_KEY }}
             DO_SPACES_BUCKET=${{ secrets.DO_SPACES_BUCKET }}
             DO_SPACES_ENDPOINT=${{ secrets.DO_SPACES_ENDPOINT }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_USER=${{ secrets.REDIS_USER }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_CHANNEL=${{ secrets.REDIS_CHANNEL }}
