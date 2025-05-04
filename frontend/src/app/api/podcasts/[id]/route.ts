@@ -1,31 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(
-    request: Request,
-    { params }: { params: { id: string } },
-) {
+type Props = {
+    params: Promise<{
+        id: string;
+    }>;
+};
+
+export async function GET(request: NextRequest, props: Props) {
     try {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-        if (!apiBaseUrl) {
-            throw new Error('API base URL is not configured');
-        }
-
-        const response = await fetch(`${apiBaseUrl}/podcasts/${params.id}`, {
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
+        const params = await props.params;
+        const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}/podcasts/${params.id}`,
+        );
 
         if (!response.ok) {
-            throw new Error(
-                `API request failed with status ${response.status}`,
-            );
+            throw new Error(`Failed to fetch podcast: ${response.status}`);
         }
 
         const data = await response.json();
         return NextResponse.json(data);
-    } catch (err) {
-        console.error('Error fetching podcast:', err);
+    } catch (error) {
+        console.error('Error fetching podcast:', error);
         return NextResponse.json(
             { error: 'Failed to fetch podcast' },
             { status: 500 },
