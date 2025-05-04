@@ -122,13 +122,15 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
                 </div>
             </div>
 
-            <Slider
-                value={[currentTime]}
-                max={podcast.length_seconds}
-                step={1}
-                onValueChange={handleSeek}
-                className="h-1 hover:cursor-pointer"
-            />
+            <div className="relative">
+                <Slider
+                    value={[currentTime]}
+                    max={podcast.length_seconds}
+                    step={1}
+                    onValueChange={handleSeek}
+                    className="h-1 hover:cursor-pointer group [&>div:first-child]:bg-[#01aa4f] [&>div:last-child]:bg-blue-500"
+                />
+            </div>
 
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
