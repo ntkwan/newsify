@@ -10,21 +10,6 @@ import os
 def safe_get(value, fallback=""):
     return value if pd.notna(value) else fallback
 
-def process_article(url, row):
-    try:
-        article = Article(url)
-        article.download()
-        article.parse()
-        return {
-            "title": article.title or "No title",
-            "content": article.text or "No content",
-            "image_url": article.top_image or safe_get(row.get('url_to_image'), 'No image available'),
-            "author": article.authors[0] if article.authors else "No author",
-        }
-    except Exception as e:
-        print(f"Error processing {url}: {str(e)}")
-        return None
-
 def parse_publish_date(date_str: str) -> dict:
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S.%f")
