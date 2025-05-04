@@ -1,15 +1,16 @@
 export interface Article {
+    trending_id: string;
+    article_id: string;
     url: string;
-    src: string;
-    title: string;
-    content: string;
     image_url: string;
-    author: string;
-    time_reading: string;
-    publish_date: string;
-    time: string;
-    timezone: string;
     categories: string[];
+    main_category: string;
+    title: string;
+    trend: string | null;
+    summary: string;
+    similarity_score: number;
+    publish_date: string;
+    analyzed_date: string;
 }
 
 export interface ArticlesResponse {
