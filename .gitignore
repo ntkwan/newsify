@@ -79,3 +79,4 @@ services/trending-service/venv/
 **/__pycache__/
 services/.env
 services/.env
+pipeline/.env
