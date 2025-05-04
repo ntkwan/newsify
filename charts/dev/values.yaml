@@ -1,0 +1,39 @@
+namespace: newsify-dev
+services:
+  backend:
+    containerName: newsify-backend
+    image: ntkwan/newsify-backend
+    tag: latest
+    port: 8080
+    ingress:
+      enabled: true
+      host: newsify.dev
+      path: "/api"
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        nginx.ingress.kubernetes.io/use-regex: "true"
+  audio-service:
+    containerName: audio-service
+    image: ntkwan/newsify-audio-service
+    tag: latest
+    port: 8000
+    ingress:
+      enabled: true
+      host: newsify.dev
+      path: "/audio"
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        nginx.ingress.kubernetes.io/use-regex: "true"
+  trending-service:
+    containerName: trending-service
+    image: ntkwan/newsify-trending-service
+    tag: latest
+    port: 8001
+    ingress:
+      enabled: true
+      host: newsify.dev
+      path: "/trending"
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        nginx.ingress.kubernetes.io/use-regex: "true"
+replicaCount: 1
