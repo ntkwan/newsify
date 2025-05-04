@@ -134,11 +134,12 @@ create table public."Articles" (
 ```sql
 create table public."Podcast" (
   podcast_id uuid not null default gen_random_uuid(),
+  title text not null,
   publish_date timestamp with time zone null,
   script text null,
   timestamp_script jsonb null,
   audio_url text not null,
-  generated_date timestamp with time zone not null,
+  length_seconds int not null,
   constraint Podcast_pkey primary key (podcast_id)
 )
 ```

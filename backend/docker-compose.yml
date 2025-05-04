@@ -22,7 +22,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: kafi-server
+        container_name: newsify-server
         restart: unless-stopped
         depends_on:
             - postgres

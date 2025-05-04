@@ -50,10 +50,11 @@ podcasts_table = Table(
     metadata,
     Column('podcast_id', UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     Column('publish_date', DateTime(timezone=True)),
+    Column('title', Text, nullable=False),
     Column('script', Text),
     Column('timestamp_script', JSONB),
     Column('audio_url', Text, nullable=False),
-    Column('generated_date', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('length_seconds', Integer, nullable=True, comment='Length of the podcast in seconds'),
     schema='public'
 )
 
