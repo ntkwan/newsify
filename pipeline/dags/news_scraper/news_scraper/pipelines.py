@@ -35,7 +35,7 @@ class SaveToS3Pipeline:
     def open_spider(self, spider):
         self.current_batch = 1
         self.item_count = 0 
-        self._open_new_file()
+        self._open_new_file(spider)
         
         self.s3_client = boto3.client(
             's3',
@@ -44,7 +44,7 @@ class SaveToS3Pipeline:
         )
         self._open_new_file(spider)
 
-    def _open_new_file(self):
+    def _open_new_file(self, spider):
         utc_now  = datetime.utcnow()
         vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
         vn_now = utc_now.replace(tzinfo=pytz.utc).astimezone(vn_tz)
