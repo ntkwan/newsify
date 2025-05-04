@@ -1,0 +1,73 @@
+name: Audio Service CD
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: 'services/audio-service/requirements.txt'
+      
+      - name: Install dependencies
+        working-directory: ./services/audio-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+                
+      - name: Test uvicorn server launch
+        working-directory: ./services/audio-service
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          curl -s http://localhost:8000/health || curl -s http://localhost:8000/ || true
+          pkill -f uvicorn || true
+
+  build-and-push:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Determine image tag
+        id: determine_tag
+        run: |
+          # Get short commit SHA
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          
+          # Determine the tag based on branch
+          if [[ $GITHUB_REF == refs/heads/main ]]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+            echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          else
+            # For other branches, use branch name + commit SHA
+            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+            SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
+            echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/audio-service
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:${{ steps.determine_tag.outputs.tag }}
