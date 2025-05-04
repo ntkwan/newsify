@@ -51,15 +51,29 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Extract metadata
+      - name: Generate Docker tags
         id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service
-          tags: |
-            type=ref,event=branch
-            type=sha,format=short
-            latest
+        run: |
+          # Get short commit SHA
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          
+          # Initialize tags array
+          TAGS=""
+          
+          # Configure tags based on branch
+          if [[ $GITHUB_REF == refs/heads/main ]]; then
+            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:latest"
+          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:dev-${SHORT_SHA}"
+          else
+            # For other branches, use branch name and SHA
+            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+            SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
+            TAGS="${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:${SAFE_BRANCH_NAME}-${SHORT_SHA}"
+          fi
+          
+          # Set output for build step
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
       
       - name: Build and push
         uses: docker/build-push-action@v4
