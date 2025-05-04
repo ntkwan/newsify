@@ -2,7 +2,7 @@
   "name": "newsify",
   "private": true,
   "scripts": {
-    "prepare": "husky",
+    "prepare": "husky && husky install",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
     "lint:frontend": "cd frontend && npm run lint",
@@ -27,7 +27,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
-    "husky": "^9.0.0",
+    "husky": "^8.0.0",
     "lint-staged": "^15.2.0",
     "prettier": "^3.1.0",
     "cross-env": "^7.0.3"

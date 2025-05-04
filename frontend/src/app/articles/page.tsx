@@ -58,22 +58,23 @@ async function NewsListWrapper({
     );
 }
 
-export default async function DailyNewsPage({
-    searchParams,
-}: {
-    searchParams: {
+type Props = {
+    searchParams: Promise<{
         page?: string;
         search?: string;
         date?: string;
         category?: string;
-    };
-}) {
+    }>;
+};
+
+export default async function DailyNewsPage(props: Props) {
+    const searchParams = await props.searchParams;
     const {
         page = '1',
         search = '',
         date = '',
         category = 'All',
-    } = await searchParams;
+    } = searchParams;
     const currentPage = Number(page);
 
     const createCategoryUrl = (cat: string) => {
