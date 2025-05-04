@@ -7,8 +7,8 @@ from pyspark.sql.types import *
 from pyspark.sql.functions import (regexp_replace, col, lower, to_timestamp, unix_timestamp, date_format, 
 trim, broadcast, from_utc_timestamp, hour, minute, dayofmonth, month, year, lit, current_timestamp, when, current_date, to_json, struct)
 
-import findspark
-findspark.init()
+# import findspark
+# findspark.init()
 
 def create_spark_session():
     load_dotenv()

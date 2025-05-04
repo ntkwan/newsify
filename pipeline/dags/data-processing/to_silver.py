@@ -113,7 +113,6 @@ def parse_to_utc(publish_date_str):
 parse_to_utc_udf = udf(parse_to_utc, TimestampType())
 
 def process_publish_date(df: DataFrame) -> DataFrame:
-    # Clean publish_date by removing "Updated" or "Published" and extra spaces
     df = df.withColumn(
         "publish_date",
         when(col("publish_date") == "No publish date", None)
@@ -130,13 +129,11 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         )
     )
     
-    # Log sample data before parsing
     print("Sample publish_date and cleaned_publish_date:")
     df.select("publish_date", "cleaned_publish_date").show(5, truncate=False)
     
-    # Define common date formats
     date_formats = [
-        "h:mm a z, EEE MMMM dd, yyyy",  # e.g., 7:03 AM EST, Thu January 16, 2025
+        "h:mm a z, EEE MMMM dd, yyyy",  
         "yyyy-MM-dd HH:mm:ss",
         "yyyy-MM-dd'T'HH:mm:ssXXX",
         "EEE, dd MMM yyyy HH:mm:ss Z",
@@ -147,7 +144,6 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         "yyyy/MM/dd HH:mm"
     ]
     
-    # Try parsing with multiple formats
     df = df.withColumn(
         "publish_date_utc",
         when(col("cleaned_publish_date").isNotNull(),
@@ -158,7 +154,6 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         )
     )
     
-    # Fallback to dateutil.parser for non-standard formats
     df = df.withColumn(
         "publish_date_utc",
         when(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull(),
@@ -166,18 +161,15 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         ).otherwise(col("publish_date_utc"))
     )
     
-    # Ensure UTC timezone (UTC±00:00)
     df = df.withColumn(
         "publish_date_utc",
         when(col("publish_date_utc").isNotNull(),
              from_utc_timestamp(col("publish_date_utc"), "UTC"))
     )
     
-    # Log sample data after parsing
     print("Sample cleaned_publish_date and publish_date_utc:")
     df.select("cleaned_publish_date", "publish_date_utc").show(5, truncate=False)
     
-    # Extract time components
     df = df \
         .withColumn("time", when(col("publish_date_utc").isNotNull(), date_format(col("publish_date_utc"), "HH:mm"))) \
         .withColumn("timezone", lit("UTC")) \
@@ -212,6 +204,7 @@ def fuzzy_match_categories(cat_list, category_map, threshold=70):
 
 def clean_data(news_df: DataFrame, category_map) -> DataFrame:
     df = news_df.cache()
+    
     # Remove duplicates in the new data
     df = df.dropDuplicates(["src", "url"])
     
@@ -222,7 +215,6 @@ def clean_data(news_df: DataFrame, category_map) -> DataFrame:
         .withColumn("title", regexp_replace(col("title"), '[\\"\']', '')) \
         .withColumn("content", regexp_replace(col("content"), '[\\"\']', ''))
     
-    # Filter valid records (must have title and content)
     valid_df = df.filter(
         (col("url").isNotNull()) &
         (col("src").isNotNull()) &
@@ -235,7 +227,6 @@ def clean_data(news_df: DataFrame, category_map) -> DataFrame:
         (col("day").isNull() | col("day").cast("integer").isNotNull())
     )
     
-    # Collect error records (including those missing title or content)
     error_df = df.filter(~(
         (col("url").isNotNull()) &
         (col("src").isNotNull()) &
@@ -248,11 +239,9 @@ def clean_data(news_df: DataFrame, category_map) -> DataFrame:
         (col("day").isNull() | col("day").cast("integer").isNotNull())
     ))
     
-    # Log sample invalid records for debugging
     print("Sample invalid records (error_df):")
     error_df.select("url", "src", "title", "content").show(5, truncate=False)
     
-    # Apply fuzzy matching for categories on valid records
     fuzzy_array_udf = udf(lambda x: fuzzy_match_categories(x, category_map), StringType())
     valid_df = valid_df.withColumn("main_category", fuzzy_array_udf(col("categories")))
     
@@ -265,7 +254,6 @@ def deduplicate_news(spark, cleaned_news_df, s3_output_path):
     
     try:
         silver_df = spark.read.format("delta").load(s3_output_path)
-        # Validate existing silver data
         silver_df = silver_df.filter(
             (col("url").isNotNull()) &
             (col("src").isNotNull()) &
@@ -299,7 +287,6 @@ def deduplicate_news(spark, cleaned_news_df, s3_output_path):
                         .filter("row_number = 1") \
                         .drop("row_number")
     
-    # Final validation before returning
     deduped_df = deduped_df.filter(
         (col("url").isNotNull()) &
         (col("src").isNotNull()) &
@@ -321,10 +308,9 @@ def save_to_silver(df, s3_output_path, category_map):
         valid_df, error_df = clean_data(df, category_map)
         print(f"After cleaning: {valid_df.count()} valid records, {error_df.count()} error records")
         
-        # Process publish_date and handle unparseable dates
         valid_df = process_publish_date(valid_df)
         unparseable_df = valid_df.filter(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull())
-        # Align unparseable_df schema with error_df
+
         error_schema_columns = error_df.columns
         unparseable_df = unparseable_df.select(error_schema_columns)
         valid_df = valid_df.filter(~(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull()))
@@ -340,7 +326,6 @@ def save_to_silver(df, s3_output_path, category_map):
         result_df = deduplicate_news(spark, valid_df, s3_output_path)
         print(f"New unique records after deduplication: {result_df.count()}")
         
-        # Final validation before saving
         result_df = result_df.filter(
             (col("url").isNotNull()) &
             (col("src").isNotNull()) &
@@ -353,7 +338,6 @@ def save_to_silver(df, s3_output_path, category_map):
         )
         print(f"Final valid records before saving: {result_df.count()}")
         
-        # Select only schema-defined columns to avoid extra columns
         schema_columns = [f.name for f in define_schema()]
         result_df = result_df.select(schema_columns)
         
