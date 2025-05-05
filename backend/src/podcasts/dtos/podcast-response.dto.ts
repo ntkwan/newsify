@@ -47,4 +47,11 @@ export class PodcastResponseDto {
         required: false,
     })
     length_seconds: number | null;
+
+    @ApiProperty({
+        description: 'The links to the articles',
+        example: ['https://example.com/article1', 'https://example.com/article2'],
+        required: false,
+    })
+    links: string[] | null;
 }

@@ -53,4 +53,11 @@ export class Podcast extends Model {
         field: 'length_seconds',
     })
     lengthSeconds: number;
+
+    @Column({
+        type: DataType.ARRAY(DataType.TEXT),
+        allowNull: true,
+        field: 'links',
+    })
+    links: string[];
 }
