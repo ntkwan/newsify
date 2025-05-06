@@ -3,7 +3,6 @@ import { Client } from '@elastic/elasticsearch';
 import { ConfigService } from '@nestjs/config';
 import { Article } from '../articles/entities/article.model';
 import { SearchResponseDto } from './dtos/search-response.dto';
-import { ArticleResponseDto } from 'src/articles/dtos/article-response.dto';
 @Injectable()
 export class SearchService {
     private readonly client: Client;
@@ -192,7 +191,11 @@ export class SearchService {
                             ? {
                                   multi_match: {
                                       query: query,
-                                      fields: ['title'],
+                                      fields: [
+                                          'title^3',
+                                          'summary^2',
+                                          'content',
+                                      ],
                                       type: 'best_fields',
                                       operator: 'and',
                                       fuzziness: 'AUTO',
@@ -203,12 +206,20 @@ export class SearchService {
                     sort: [{ publishDate: { order: 'desc' } }, '_score'],
                     highlight: {
                         fields: {
-                            title: {},
+                            title: {
+                                pre_tags: ['<strong>'],
+                                post_tags: ['</strong>'],
+                            },
                             content: {
                                 fragment_size: 150,
                                 number_of_fragments: 3,
+                                pre_tags: ['<strong>'],
+                                post_tags: ['</strong>'],
                             },
-                            summary: {},
+                            summary: {
+                                pre_tags: ['<strong>'],
+                                post_tags: ['</strong>'],
+                            },
                         },
                     },
                 },
@@ -229,7 +240,11 @@ export class SearchService {
                             hit._source?.mainCategory || 'Uncategorized',
                         publishDate: hit._source?.publishDate || null,
                         imageUrl: hit._source?.imageUrl || '',
-                        highlights: hit.highlight || {},
+                        highlights: {
+                            title: hit.highlight?.title || [],
+                            content: hit.highlight?.content || [],
+                            summary: hit.highlight?.summary || [],
+                        },
                     };
                 }),
                 total: totalHits,
