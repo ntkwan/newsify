@@ -7,3 +7,7 @@ apache-airflow
 delta-spark psycopg2-binary supabase
 fuzzywuzzy
 RapidFuzz
+feedparser
+newspaper3k
+PyYAML
+lxml_html_clean
