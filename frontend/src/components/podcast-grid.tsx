@@ -1,0 +1,107 @@
+import Image from 'next/image';
+import { Podcast } from '@/types/podcast';
+
+interface PodcastGridProps {
+    podcasts: Podcast[];
+    currentPodcastId?: string;
+    onPodcastSelect: (podcast: Podcast) => void;
+}
+
+export const PodcastGrid: React.FC<PodcastGridProps> = ({
+    podcasts,
+    currentPodcastId,
+    onPodcastSelect,
+}) => {
+    return (
+        <div className="mt-12 mb-12">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Others</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {podcasts.map((podcast) => (
+                    <div
+                        key={podcast.podcast_id}
+                        className={`bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ${
+                            currentPodcastId === podcast.podcast_id
+                                ? 'ring-2 ring-[#01aa4f]'
+                                : ''
+                        }`}
+                        onClick={() => onPodcastSelect(podcast)}
+                    >
+                        <div className="p-2">
+                            <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+                                <Image
+                                    src="/images/placeholders/podcast-placeholder.png"
+                                    alt={podcast.title}
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    className="object-cover"
+                                    priority={false}
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                    <button className="bg-[#01aa4f] text-white p-2 rounded-full hover:bg-[#018a3f] transition-colors">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-6 w-6"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="mt-2 text-center">
+                                <h3 className="text-lg font-bold text-[#01aa4f] mb-2 line-clamp-2">
+                                    {podcast.title}
+                                </h3>
+                                <div className="flex items-center justify-start pl-2 gap-2 text-gray-500 text-sm mb-2">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                    >
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                                            clipRule="evenodd"
+                                        />
+                                    </svg>
+                                    {new Date(
+                                        podcast.publish_date,
+                                    ).toLocaleDateString('en-US', {
+                                        month: 'long',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                    })}
+                                </div>
+                                <div className="flex items-center justify-start pl-2 gap-2 text-gray-500 text-sm">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                    >
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                                            clipRule="evenodd"
+                                        />
+                                    </svg>
+                                    {Math.floor(podcast.length_seconds / 60)}:
+                                    {(podcast.length_seconds % 60)
+                                        .toString()
+                                        .padStart(2, '0')}{' '}
+                                    min
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
