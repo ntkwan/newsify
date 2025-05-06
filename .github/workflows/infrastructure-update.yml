@@ -27,6 +27,14 @@ jobs:
   update-infrastructure:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug inputs
+        run: |
+          echo "Received inputs:"
+          echo "Service: ${{ inputs.service }}"
+          echo "Tag: ${{ inputs.tag }}"
+          echo "Environment: ${{ inputs.env }}"
+          echo "Source branch: ${{ inputs.source_branch }}"
+      
       - name: Generate unique ID
         id: generate_id
         run: |

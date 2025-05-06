@@ -38,8 +38,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.determine_tag.outputs.tag }}
-      env: ${{ steps.determine_tag.outputs.env }}
+      tag: ${{ steps.set_output_vars.outputs.tag }}
+      env: ${{ steps.set_output_vars.outputs.env }}
     
     steps:
       - name: Checkout code
@@ -102,6 +102,12 @@ jobs:
             REDIS_USER=${{ secrets.REDIS_USER }}
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             REDIS_CHANNEL=${{ secrets.REDIS_CHANNEL }}
+            
+      - name: Set output variables
+        id: set_output_vars
+        run: |
+          echo "tag=${{ steps.determine_tag.outputs.tag }}" >> $GITHUB_OUTPUT
+          echo "env=${{ steps.determine_tag.outputs.env }}" >> $GITHUB_OUTPUT
 
   update-infrastructure:
     needs: build-and-push
