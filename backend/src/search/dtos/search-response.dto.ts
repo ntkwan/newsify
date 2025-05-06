@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-class HighlightDto {
+export class HighlightDto {
     @ApiProperty({
         description: 'Highlighted title fragments',
         type: [String],
@@ -29,7 +29,7 @@ class HighlightDto {
     summary?: string[];
 }
 
-class ArticleSearchResultDto {
+export class ArticleSearchResultDto {
     @ApiProperty({
         description: 'Article trending ID',
         example: '123e4567-e89b-12d3-a456-426614174000',
@@ -37,22 +37,10 @@ class ArticleSearchResultDto {
     trendingId: string;
 
     @ApiProperty({
-        description: 'Article ID',
-        example: '123e4567-e89b-12d3-a456-426614174001',
-    })
-    articleId: string;
-
-    @ApiProperty({
         description: 'Article title',
         example: 'Advances in Artificial Intelligence',
     })
     title: string;
-
-    @ApiProperty({
-        description: 'Article content',
-        example: 'This article discusses recent developments in AI...',
-    })
-    content: string;
 
     @ApiProperty({
         description: 'Article summary',
@@ -67,23 +55,10 @@ class ArticleSearchResultDto {
     mainCategory: string;
 
     @ApiProperty({
-        description: 'All categories',
-        type: [String],
-        example: ['Technology', 'AI', 'Science'],
-    })
-    categories: string[];
-
-    @ApiProperty({
         description: 'Publication date',
         example: '2023-01-15T12:00:00Z',
     })
     publishDate: Date;
-
-    @ApiProperty({
-        description: 'Article URL',
-        example: 'https://example.com/article/advances-in-ai',
-    })
-    url: string;
 
     @ApiProperty({
         description: 'Image URL',
@@ -98,18 +73,11 @@ class ArticleSearchResultDto {
     similarityScore: number;
 
     @ApiProperty({
-        description: 'Search relevance score',
-        example: 8.75,
-    })
-    score: number;
-
-    @ApiProperty({
         description: 'Highlighted search matches',
         type: HighlightDto,
     })
     highlights: Record<string, string[]>;
 }
-
 export class SearchResponseDto {
     @ApiProperty({
         description: 'Articles matching the search criteria',

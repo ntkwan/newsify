@@ -12,18 +12,13 @@ export class SyncService implements OnModuleInit {
         private readonly articleRepository: ArticleRepository,
     ) {}
 
-    /**
-     * Initialize Elasticsearch index and sync data when module starts
-     */
     async onModuleInit() {
         try {
             this.logger.log('Initializing Elasticsearch and syncing data');
 
-            // Create index with proper mappings
             await this.elasticsearchService.createIndex();
 
-            // Perform initial sync
-            await this.syncAllArticles();
+            await this.reindexAll();
         } catch (error) {
             this.logger.error(
                 'Failed to initialize Elasticsearch or sync data:',
@@ -32,9 +27,6 @@ export class SyncService implements OnModuleInit {
         }
     }
 
-    /**
-     * Sync all articles to Elasticsearch
-     */
     async syncAllArticles(): Promise<void> {
         this.logger.log('Starting full sync of articles to Elasticsearch');
 
@@ -47,7 +39,6 @@ export class SyncService implements OnModuleInit {
                 `Syncing batch ${page} (page size: ${this.batchSize})`,
             );
 
-            // Get batch of articles
             const { rows, count } =
                 await this.articleRepository.findAndCountAll(
                     page,
@@ -55,7 +46,6 @@ export class SyncService implements OnModuleInit {
                 );
 
             if (rows && rows.length > 0) {
-                // Index articles in Elasticsearch
                 await this.elasticsearchService.bulkIndexArticles(rows);
                 totalSynced += rows.length;
                 this.logger.log(
@@ -63,7 +53,6 @@ export class SyncService implements OnModuleInit {
                 );
             }
 
-            // Check if we have more articles to sync
             if (page * this.batchSize >= count || rows.length === 0) {
                 hasMore = false;
             } else {
@@ -76,44 +65,42 @@ export class SyncService implements OnModuleInit {
         );
     }
 
-    /**
-     * Sync a single article to Elasticsearch
-     */
-    async syncArticle(articleId: string): Promise<void> {
-        try {
-            const article = await this.articleRepository.findById(articleId);
-            if (article) {
-                await this.elasticsearchService.indexArticle(article);
-                this.logger.log(`Synced article ${articleId} to Elasticsearch`);
-            } else {
-                this.logger.warn(`Article ${articleId} not found for syncing`);
-            }
-        } catch (error) {
-            this.logger.error(
-                `Error syncing article ${articleId}:`,
-                error.message,
-            );
-            throw error;
-        }
-    }
-
-    /**
-     * Re-index all data (delete index and sync again)
-     */
     async reindexAll(): Promise<void> {
         try {
             this.logger.log('Re-indexing all articles in Elasticsearch');
 
-            // Delete existing index
+            const { count } = await this.articleRepository.findAndCountAll(
+                1,
+                1,
+            );
+            this.logger.log(`Found ${count} articles in the database`);
+
+            if (count === 0) {
+                this.logger.warn(
+                    'No articles found in the database. Nothing to index.',
+                );
+                return;
+            }
+
             await this.elasticsearchService.deleteIndex();
 
-            // Create index with mappings
             await this.elasticsearchService.createIndex();
 
-            // Sync all articles
             await this.syncAllArticles();
 
-            this.logger.log('Re-indexing completed successfully');
+            const countAfterIndexing =
+                await this.elasticsearchService.countDocuments();
+            this.logger.log(
+                `Total documents after indexing: ${countAfterIndexing}`,
+            );
+
+            if (countAfterIndexing === 0) {
+                this.logger.error(
+                    'Failed to index any documents. Index remains empty.',
+                );
+            } else {
+                this.logger.log('Re-indexing completed successfully');
+            }
         } catch (error) {
             this.logger.error('Error re-indexing articles:', error.message);
             throw error;

@@ -2,33 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Client } from '@elastic/elasticsearch';
 import { ConfigService } from '@nestjs/config';
 import { Article } from '../articles/entities/article.model';
-
-interface ArticleDocument {
-    trendingId: string;
-    articleId: string;
-    title: string;
-    content: string;
-    summary: string;
-    mainCategory: string;
-    categories: string[];
-    publishDate: Date;
-    url: string;
-    imageUrl: string;
-    similarityScore: number;
-}
-
-interface SearchResponseDto {
-    articles: Array<
-        ArticleDocument & {
-            score: number;
-            highlights: Record<string, string[]>;
-        }
-    >;
-    total: number;
-    page: number;
-    pageSize: number;
-}
-
+import { SearchResponseDto } from './dtos/search-response.dto';
 @Injectable()
 export class ElasticsearchService {
     private readonly client: Client;
@@ -37,52 +11,32 @@ export class ElasticsearchService {
 
     constructor(private configService: ConfigService) {
         this.client = new Client({
-            node: 'https://146.190.81.220:9200',
+            node: this.configService.get('ELS_IP'),
             auth: {
-                username: 'elastic',
-                password: 'IQoEliXEX+53yi4ZEYTq',
+                username: this.configService.get('ELS_USERNAME'),
+                password: this.configService.get('ELS_PASSWORD'),
             },
             ssl: {
-                rejectUnauthorized: false, // Accept self-signed certificates
+                rejectUnauthorized: false,
             },
         });
-
-        this.checkConnection();
     }
 
-    private async checkConnection(): Promise<void> {
-        try {
-            const info = await this.client.info();
-            this.logger.log(
-                `Elasticsearch connected successfully to ${info.body.name}`,
-            );
-        } catch (error) {
-            this.logger.error('Elasticsearch connection error:', error);
-        }
-    }
-
-    /**
-     * Create Elasticsearch index with optimized mappings for article search
-     */
     async createIndex(): Promise<void> {
         try {
-            // Check if index exists
             try {
                 await this.client.indices.exists({
                     index: this.indexName,
                 });
 
-                // If we get here, index exists
                 this.logger.log(`Index ${this.indexName} already exists`);
                 return;
             } catch (err) {
-                // 404 means index doesn't exist - nothing to worry about
                 if (err.statusCode !== 404) {
                     throw err;
                 }
             }
 
-            // If we're here, index doesn't exist - create it
             this.logger.log(`Creating index ${this.indexName}...`);
 
             await this.client.indices.create({
@@ -146,39 +100,6 @@ export class ElasticsearchService {
         }
     }
 
-    async indexArticle(article: Article): Promise<void> {
-        try {
-            await this.client.index({
-                index: this.indexName,
-                id: article.trendingId,
-                body: {
-                    trendingId: article.trendingId,
-                    articleId: article.articleId,
-                    title: article.title,
-                    content: article.content,
-                    summary: article.summary,
-                    mainCategory: article.mainCategory,
-                    categories: article.categories,
-                    publishDate: article.publishDate,
-                    url: article.url,
-                    imageUrl: article.imageUrl,
-                    similarityScore: article.similarityScore,
-                },
-                refresh: true, // Ensure the document is immediately available for search
-            });
-            this.logger.debug(`Indexed article ${article.trendingId}`);
-        } catch (error) {
-            this.logger.error(
-                `Error indexing article: ${error.message}`,
-                error.stack,
-            );
-            throw error;
-        }
-    }
-
-    /**
-     * Bulk index multiple articles
-     */
     async bulkIndexArticles(articles: Article[]): Promise<void> {
         if (!articles || articles.length === 0) {
             return;
@@ -186,19 +107,24 @@ export class ElasticsearchService {
 
         try {
             const body = articles.flatMap((article) => [
-                { index: { _index: this.indexName, _id: article.trendingId } },
                 {
-                    trendingId: article.trendingId,
-                    articleId: article.articleId,
-                    title: article.title,
-                    content: article.content,
-                    summary: article.summary,
-                    mainCategory: article.mainCategory,
-                    categories: article.categories,
-                    publishDate: article.publishDate,
-                    url: article.url,
-                    imageUrl: article.imageUrl,
-                    similarityScore: article.similarityScore,
+                    index: {
+                        _index: this.indexName,
+                        _id: article.dataValues.trendingId,
+                    },
+                },
+                {
+                    trendingId: article.dataValues.trendingId,
+                    articleId: article.dataValues.articleId,
+                    title: article.dataValues.title,
+                    content: article.dataValues.content,
+                    summary: article.dataValues.summary,
+                    mainCategory: article.dataValues.mainCategory,
+                    categories: article.dataValues.categories,
+                    publishDate: article.dataValues.publishDate,
+                    url: article.dataValues.url,
+                    imageUrl: article.dataValues.imageUrl,
+                    similarityScore: article.dataValues.similarityScore,
                 },
             ]);
 
@@ -228,9 +154,6 @@ export class ElasticsearchService {
         }
     }
 
-    /**
-     * Search for articles by title with relevance scoring
-     */
     async searchArticles(
         query: string,
         page: number = 1,
@@ -241,90 +164,79 @@ export class ElasticsearchService {
                 `Searching for "${query}" (page ${page}, size ${size})`,
             );
 
+            const countResponse = await this.client.count({
+                index: this.indexName,
+            });
+
+            const totalDocuments = countResponse.body.count;
+            this.logger.log(`Total documents in index: ${totalDocuments}`);
+
+            if (totalDocuments === 0) {
+                this.logger.warn('Index is empty. No results to return.');
+                return {
+                    articles: [],
+                    total: 0,
+                    page,
+                    pageSize: size,
+                };
+            }
+
             const response = await this.client.search({
                 index: this.indexName,
                 body: {
                     from: (page - 1) * size,
                     size,
-                    query: {
-                        bool: {
-                            should: [
-                                // Title exact matches (highest boost)
-                                {
-                                    match_phrase: {
-                                        title: {
-                                            query,
-                                            boost: 4,
-                                        },
-                                    },
-                                },
-                                // Title partial matches (high boost)
-                                {
-                                    match: {
-                                        title: {
-                                            query,
-                                            boost: 3,
-                                            fuzziness: 'AUTO',
-                                        },
-                                    },
-                                },
-                                // Summary matches (medium boost)
-                                {
-                                    match: {
-                                        summary: {
-                                            query,
-                                            boost: 2,
-                                        },
-                                    },
-                                },
-                                // Content matches (lowest boost)
-                                {
-                                    match: {
-                                        content: {
-                                            query,
-                                            boost: 1,
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    },
+                    query:
+                        query && query.trim() !== ''
+                            ? {
+                                  match: {
+                                      title: {
+                                          query: query,
+                                          operator: 'and',
+                                          fuzziness: 'AUTO',
+                                      },
+                                  },
+                              }
+                            : { match_all: {} },
+                    _source: true,
                     highlight: {
                         fields: {
-                            title: {
-                                number_of_fragments: 1,
-                                pre_tags: ['<strong>'],
-                                post_tags: ['</strong>'],
-                            },
+                            title: {},
                             content: {
-                                number_of_fragments: 2,
                                 fragment_size: 150,
-                                pre_tags: ['<strong>'],
-                                post_tags: ['</strong>'],
+                                number_of_fragments: 3,
                             },
-                            summary: {
-                                number_of_fragments: 1,
-                                pre_tags: ['<strong>'],
-                                post_tags: ['</strong>'],
-                            },
+                            summary: {},
                         },
                     },
                 },
             });
-
             const totalHits =
                 typeof response.body.hits.total === 'number'
                     ? response.body.hits.total
                     : response.body.hits.total.value || 0;
 
-            this.logger.log(`Found ${totalHits} results for "${query}"`);
-
+            this.logger.log(`Found ${totalHits} total matches`);
+            const newReponse: SearchResponseDto = {
+                articles: response?.body?.hits?.hits?.map((hit) => {
+                    return {
+                        trendingId: hit._source?.trendingId || hit._id || '',
+                        title: hit._source?.title || 'No title available',
+                        summary: hit._source?.summary || '',
+                        mainCategory:
+                            hit._source?.mainCategory || 'Uncategorized',
+                        publishDate: hit._source?.publishDate || null,
+                        imageUrl: hit._source?.imageUrl || '',
+                        similarityScore: hit._source?.similarityScore || 0,
+                        highlights: hit.highlight || {},
+                    };
+                }),
+                total: totalHits,
+                page,
+                pageSize: size,
+            };
             return {
-                articles: response.body.hits.hits.map((hit) => ({
-                    ...(hit._source as ArticleDocument),
-                    score: hit._score || 0,
-                    highlights: hit.highlight || {},
-                })),
+                articles: newReponse.articles,
                 total: totalHits,
                 page,
                 pageSize: size,
@@ -338,25 +250,19 @@ export class ElasticsearchService {
         }
     }
 
-    /**
-     * Delete index (for maintenance or re-indexing)
-     */
     async deleteIndex(): Promise<void> {
         try {
-            // Check if index exists
             try {
                 await this.client.indices.exists({
                     index: this.indexName,
                 });
 
-                // If we get here, index exists, so delete it
                 await this.client.indices.delete({
-                    index: this.indexName
+                    index: this.indexName,
                 });
 
                 this.logger.log(`Index ${this.indexName} deleted`);
             } catch (err) {
-                // 404 means index doesn't exist - nothing to delete
                 if (err.statusCode === 404) {
                     this.logger.log(
                         `Index ${this.indexName} does not exist, nothing to delete`,
@@ -371,6 +277,41 @@ export class ElasticsearchService {
                 error.stack,
             );
             throw error;
+        }
+    }
+
+    async reindexAll(): Promise<void> {
+        try {
+            this.logger.log('Re-indexing all articles in Elasticsearch');
+
+            await this.deleteIndex();
+
+            await this.createIndex();
+
+            const countAfterIndexing = await this.countDocuments();
+            this.logger.log(
+                `Total documents after indexing: ${countAfterIndexing}`,
+            );
+
+            this.logger.log('Re-indexing completed successfully');
+        } catch (error) {
+            this.logger.error('Error re-indexing articles:', error.message);
+            throw error;
+        }
+    }
+
+    async countDocuments(): Promise<number> {
+        try {
+            const response = await this.client.count({
+                index: this.indexName,
+            });
+            return response.body.count;
+        } catch (error) {
+            this.logger.error(
+                `Error counting documents: ${error.message}`,
+                error.stack,
+            );
+            return 0;
         }
     }
 }
