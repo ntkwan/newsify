@@ -1,9 +1,13 @@
-import { Suspense } from 'react';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { ArticleService } from '@/services/article.service';
 import NewsList from '@/components/news-list';
 import Pagination from '@/components/pagination';
 import Loading from '../articles/loading';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Article } from '@/types/article';
 
 const CATEGORIES = [
     'All',
@@ -28,54 +32,40 @@ const CATEGORIES = [
     'Travel and Transportation',
 ];
 
-async function NewsListWrapper({
-    page,
-    search,
-    date,
-    category,
-}: {
-    page: number;
-    search?: string;
-    date?: string;
-    category?: string;
-}) {
-    const response = await ArticleService.getArticles(
-        page,
-        10,
-        search,
-        date,
-        category,
-    );
-    return (
-        <>
-            <NewsList articles={response.articles} />
-            <Pagination
-                currentPage={page}
-                totalPages={Math.ceil(response.total / 10)}
-                totalItems={response.total}
-            />
-        </>
-    );
-}
+export default function DailyNewsPage() {
+    const searchParams = useSearchParams();
+    const [loading, setLoading] = useState(true);
+    const [articles, setArticles] = useState<Article[]>([]);
+    const [total, setTotal] = useState(0);
 
-type Props = {
-    searchParams: Promise<{
-        page?: string;
-        search?: string;
-        date?: string;
-        category?: string;
-    }>;
-};
-
-export default async function DailyNewsPage(props: Props) {
-    const searchParams = await props.searchParams;
-    const {
-        page = '1',
-        search = '',
-        date = '',
-        category = 'All',
-    } = searchParams;
+    const page = searchParams.get('page') || '1';
+    const search = searchParams.get('search') || '';
+    const date = searchParams.get('date') || '';
+    const category = searchParams.get('category') || 'All';
     const currentPage = Number(page);
+
+    useEffect(() => {
+        const fetchArticles = async () => {
+            setLoading(true);
+            try {
+                const response = await ArticleService.getArticles(
+                    currentPage,
+                    10,
+                    search,
+                    date,
+                    category,
+                );
+                setArticles(response.articles);
+                setTotal(response.total);
+            } catch (error) {
+                console.error('Error fetching articles:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchArticles();
+    }, [currentPage, search, date, category]);
 
     const createCategoryUrl = (cat: string) => {
         const params = new URLSearchParams();
@@ -106,17 +96,18 @@ export default async function DailyNewsPage(props: Props) {
                 ))}
             </div>
 
-            <Suspense
-                key={`${currentPage}-${search}-${date}-${category}`}
-                fallback={<Loading />}
-            >
-                <NewsListWrapper
-                    page={currentPage}
-                    search={search}
-                    date={date}
-                    category={category}
-                />
-            </Suspense>
+            {loading ? (
+                <Loading />
+            ) : (
+                <>
+                    <NewsList articles={articles} />
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={Math.ceil(total / 10)}
+                        totalItems={total}
+                    />
+                </>
+            )}
         </div>
     );
 }
