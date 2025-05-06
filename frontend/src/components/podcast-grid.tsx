@@ -19,9 +19,9 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                 {podcasts.map((podcast) => (
                     <div
                         key={podcast.podcast_id}
-                        className={`bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ${
+                        className={`bg-gradient-to-br from-gray-100 to-gray-150 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ${
                             currentPodcastId === podcast.podcast_id
-                                ? 'ring-2 ring-[#01aa4f]'
+                                ? 'ring-4 ring-[#01aa4f]'
                                 : ''
                         }`}
                         onClick={() => onPodcastSelect(podcast)}
@@ -37,7 +37,7 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                     priority={false}
                                 />
                                 <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                    <button className="bg-[#01aa4f] text-white p-2 rounded-full hover:bg-[#018a3f] transition-colors">
+                                    <button className="bg-[#01aa4f] text-white p-2 rounded-full hover:bg-[#018a3f] transition-colors hover:cursor-pointer">
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
                                             className="h-6 w-6"
