@@ -8,7 +8,7 @@ WORKDIR /opt/airflow
 
 COPY ./dags /opt/airflow/dags
 COPY ./plugins /opt/airflow/plugins
-COPY ./dags/news_scraper /opt/airflow/news_scraper
+COPY ./dags/data_crawling /opt/airflow/data_crawling
 COPY .env /opt/airflow/.env  
 
 EXPOSE 8080
