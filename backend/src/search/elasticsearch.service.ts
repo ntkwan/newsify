@@ -33,7 +33,7 @@ interface SearchResponseDto {
 export class ElasticsearchService {
     private readonly client: Client;
     private readonly logger = new Logger(ElasticsearchService.name);
-    private readonly indexName = 'articles';
+    private readonly indexName = 'title';
 
     constructor(private configService: ConfigService) {
         this.client = new Client({
@@ -42,8 +42,8 @@ export class ElasticsearchService {
                 username: 'elastic',
                 password: 'IQoEliXEX+53yi4ZEYTq',
             },
-            tls: {
-                rejectUnauthorized: true,
+            ssl: {
+                rejectUnauthorized: false, // Accept self-signed certificates
             },
         });
 
@@ -54,7 +54,7 @@ export class ElasticsearchService {
         try {
             const info = await this.client.info();
             this.logger.log(
-                `Elasticsearch connected successfully to ${info.name}`,
+                `Elasticsearch connected successfully to ${info.body.name}`,
             );
         } catch (error) {
             this.logger.error('Elasticsearch connection error:', error);
@@ -66,13 +66,28 @@ export class ElasticsearchService {
      */
     async createIndex(): Promise<void> {
         try {
-            const indexExists = await this.client.indices.exists({
-                index: this.indexName,
-            });
-
-            if (!indexExists) {
-                await this.client.indices.create({
+            // Check if index exists
+            try {
+                await this.client.indices.exists({
                     index: this.indexName,
+                });
+
+                // If we get here, index exists
+                this.logger.log(`Index ${this.indexName} already exists`);
+                return;
+            } catch (err) {
+                // 404 means index doesn't exist - nothing to worry about
+                if (err.statusCode !== 404) {
+                    throw err;
+                }
+            }
+
+            // If we're here, index doesn't exist - create it
+            this.logger.log(`Creating index ${this.indexName}...`);
+
+            await this.client.indices.create({
+                index: this.indexName,
+                body: {
                     settings: {
                         analysis: {
                             analyzer: {
@@ -119,9 +134,9 @@ export class ElasticsearchService {
                             similarityScore: { type: 'float' },
                         },
                     },
-                });
-                this.logger.log(`Index ${this.indexName} created successfully`);
-            }
+                },
+            });
+            this.logger.log(`Index ${this.indexName} created successfully`);
         } catch (error) {
             this.logger.error(
                 `Error creating index: ${error.message}`,
@@ -131,15 +146,12 @@ export class ElasticsearchService {
         }
     }
 
-    /**
-     * Index a single article in Elasticsearch
-     */
     async indexArticle(article: Article): Promise<void> {
         try {
             await this.client.index({
                 index: this.indexName,
                 id: article.trendingId,
-                document: {
+                body: {
                     trendingId: article.trendingId,
                     articleId: article.articleId,
                     title: article.title,
@@ -173,7 +185,7 @@ export class ElasticsearchService {
         }
 
         try {
-            const operations = articles.flatMap((article) => [
+            const body = articles.flatMap((article) => [
                 { index: { _index: this.indexName, _id: article.trendingId } },
                 {
                     trendingId: article.trendingId,
@@ -191,12 +203,12 @@ export class ElasticsearchService {
             ]);
 
             const response = await this.client.bulk({
-                operations,
+                body,
                 refresh: true,
             });
 
-            if (response.errors) {
-                const errorItems = response.items.filter(
+            if (response.body.errors) {
+                const errorItems = response.body.items.filter(
                     (item) => item.index && item.index.error,
                 );
                 this.logger.error(
@@ -229,89 +241,87 @@ export class ElasticsearchService {
                 `Searching for "${query}" (page ${page}, size ${size})`,
             );
 
-            const response = await this.client.search<ArticleDocument>({
+            const response = await this.client.search({
                 index: this.indexName,
-                from: (page - 1) * size,
-                size,
-                query: {
-                    bool: {
-                        should: [
-                            // Title exact matches (highest boost)
-                            {
-                                match_phrase: {
-                                    title: {
-                                        query,
-                                        boost: 4,
+                body: {
+                    from: (page - 1) * size,
+                    size,
+                    query: {
+                        bool: {
+                            should: [
+                                // Title exact matches (highest boost)
+                                {
+                                    match_phrase: {
+                                        title: {
+                                            query,
+                                            boost: 4,
+                                        },
                                     },
                                 },
-                            },
-                            // Title partial matches (high boost)
-                            {
-                                match: {
-                                    title: {
-                                        query,
-                                        boost: 3,
-                                        fuzziness: 'AUTO',
+                                // Title partial matches (high boost)
+                                {
+                                    match: {
+                                        title: {
+                                            query,
+                                            boost: 3,
+                                            fuzziness: 'AUTO',
+                                        },
                                     },
                                 },
-                            },
-                            // Summary matches (medium boost)
-                            {
-                                match: {
-                                    summary: {
-                                        query,
-                                        boost: 2,
+                                // Summary matches (medium boost)
+                                {
+                                    match: {
+                                        summary: {
+                                            query,
+                                            boost: 2,
+                                        },
                                     },
                                 },
-                            },
-                            // Content matches (lowest boost)
-                            {
-                                match: {
-                                    content: {
-                                        query,
-                                        boost: 1,
+                                // Content matches (lowest boost)
+                                {
+                                    match: {
+                                        content: {
+                                            query,
+                                            boost: 1,
+                                        },
                                     },
                                 },
-                            },
-                        ],
-                    },
-                },
-                highlight: {
-                    fields: {
-                        title: {
-                            number_of_fragments: 1,
-                            pre_tags: ['<strong>'],
-                            post_tags: ['</strong>'],
-                        },
-                        content: {
-                            number_of_fragments: 2,
-                            fragment_size: 150,
-                            pre_tags: ['<strong>'],
-                            post_tags: ['</strong>'],
-                        },
-                        summary: {
-                            number_of_fragments: 1,
-                            pre_tags: ['<strong>'],
-                            post_tags: ['</strong>'],
+                            ],
                         },
                     },
+                    highlight: {
+                        fields: {
+                            title: {
+                                number_of_fragments: 1,
+                                pre_tags: ['<strong>'],
+                                post_tags: ['</strong>'],
+                            },
+                            content: {
+                                number_of_fragments: 2,
+                                fragment_size: 150,
+                                pre_tags: ['<strong>'],
+                                post_tags: ['</strong>'],
+                            },
+                            summary: {
+                                number_of_fragments: 1,
+                                pre_tags: ['<strong>'],
+                                post_tags: ['</strong>'],
+                            },
+                        },
+                    },
                 },
-                sort: [
-                    '_score', // Primary sort by relevance
-                    { publishDate: 'desc' }, // Secondary sort by publish date
-                ],
             });
 
             const totalHits =
-                typeof response.hits.total === 'number'
-                    ? response.hits.total
-                    : response.hits.total?.value || 0;
+                typeof response.body.hits.total === 'number'
+                    ? response.body.hits.total
+                    : response.body.hits.total.value || 0;
 
             this.logger.log(`Found ${totalHits} results for "${query}"`);
 
             return {
-                articles: response.hits.hits.map((hit) => ({
-                    ...hit._source,
+                articles: response.body.hits.hits.map((hit) => ({
+                    ...(hit._source as ArticleDocument),
                     score: hit._score || 0,
                     highlights: hit.highlight || {},
                 })),
@@ -333,13 +343,27 @@ export class ElasticsearchService {
      */
     async deleteIndex(): Promise<void> {
         try {
-            const indexExists = await this.client.indices.exists({
-                index: this.indexName,
-            });
+            // Check if index exists
+            try {
+                await this.client.indices.exists({
+                    index: this.indexName,
+                });
 
-            if (indexExists) {
-                await this.client.indices.delete({ index: this.indexName });
+                // If we get here, index exists, so delete it
+                await this.client.indices.delete({
+                    index: this.indexName
+                });
+
                 this.logger.log(`Index ${this.indexName} deleted`);
+            } catch (err) {
+                // 404 means index doesn't exist - nothing to delete
+                if (err.statusCode === 404) {
+                    this.logger.log(
+                        `Index ${this.indexName} does not exist, nothing to delete`,
+                    );
+                } else {
+                    throw err;
+                }
             }
         } catch (error) {
             this.logger.error(
