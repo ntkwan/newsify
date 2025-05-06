@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ElasticsearchService } from './elasticsearch.service';
+import { SearchService } from './search.service';
 import { ArticleRepository } from '../articles/article.repository';
 
 @Injectable()
@@ -8,7 +8,7 @@ export class SyncService implements OnModuleInit {
     private readonly batchSize = 100;
 
     constructor(
-        private readonly elasticsearchService: ElasticsearchService,
+        private readonly searchService: SearchService,
         private readonly articleRepository: ArticleRepository,
     ) {}
 
@@ -16,7 +16,7 @@ export class SyncService implements OnModuleInit {
         try {
             this.logger.log('Initializing Elasticsearch and syncing data');
 
-            await this.elasticsearchService.createIndex();
+            await this.searchService.createIndex();
 
             await this.reindexAll();
         } catch (error) {
@@ -46,7 +46,7 @@ export class SyncService implements OnModuleInit {
                 );
 
             if (rows && rows.length > 0) {
-                await this.elasticsearchService.bulkIndexArticles(rows);
+                await this.searchService.bulkIndexArticles(rows);
                 totalSynced += rows.length;
                 this.logger.log(
                     `Synced ${rows.length} articles (total: ${totalSynced}/${count})`,
@@ -82,14 +82,14 @@ export class SyncService implements OnModuleInit {
                 return;
             }
 
-            await this.elasticsearchService.deleteIndex();
+            await this.searchService.deleteIndex();
 
-            await this.elasticsearchService.createIndex();
+            await this.searchService.createIndex();
 
             await this.syncAllArticles();
 
             const countAfterIndexing =
-                await this.elasticsearchService.countDocuments();
+                await this.searchService.countDocuments();
             this.logger.log(
                 `Total documents after indexing: ${countAfterIndexing}`,
             );

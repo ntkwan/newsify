@@ -67,12 +67,6 @@ export class ArticleSearchResultDto {
     imageUrl: string;
 
     @ApiProperty({
-        description: 'Similarity score',
-        example: 0.85,
-    })
-    similarityScore: number;
-
-    @ApiProperty({
         description: 'Highlighted search matches',
         type: HighlightDto,
     })

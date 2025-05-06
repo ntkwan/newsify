@@ -3,10 +3,11 @@ import { Client } from '@elastic/elasticsearch';
 import { ConfigService } from '@nestjs/config';
 import { Article } from '../articles/entities/article.model';
 import { SearchResponseDto } from './dtos/search-response.dto';
+import { ArticleResponseDto } from 'src/articles/dtos/article-response.dto';
 @Injectable()
-export class ElasticsearchService {
+export class SearchService {
     private readonly client: Client;
-    private readonly logger = new Logger(ElasticsearchService.name);
+    private readonly logger = new Logger(SearchService.name);
     private readonly indexName = 'title';
 
     constructor(private configService: ConfigService) {
@@ -157,7 +158,7 @@ export class ElasticsearchService {
     async searchArticles(
         query: string,
         page: number = 1,
-        size: number = 10,
+        size: number = 20,
     ): Promise<SearchResponseDto> {
         try {
             this.logger.log(
@@ -189,12 +190,16 @@ export class ElasticsearchService {
                     query:
                         query && query.trim() !== ''
                             ? {
-                                  match: {
-                                      title: {
-                                          query: query,
-                                          operator: 'and',
-                                          fuzziness: 'AUTO',
-                                      },
+                                  multi_match: {
+                                      query: query,
+                                      fields: [
+                                          'title^3',
+                                          'summary^2',
+                                          'content',
+                                      ],
+                                      type: 'best_fields',
+                                      operator: 'and',
+                                      fuzziness: 'AUTO',
                                   },
                               }
                             : { match_all: {} },
@@ -227,7 +232,6 @@ export class ElasticsearchService {
                             hit._source?.mainCategory || 'Uncategorized',
                         publishDate: hit._source?.publishDate || null,
                         imageUrl: hit._source?.imageUrl || '',
-                        similarityScore: hit._source?.similarityScore || 0,
                         highlights: hit.highlight || {},
                     };
                 }),
