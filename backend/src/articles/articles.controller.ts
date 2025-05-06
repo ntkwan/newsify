@@ -6,6 +6,7 @@ import { PaginationDto } from './dtos/pagination.dto';
 import { PaginatedArticlesResponseDto } from './dtos/paginated-articles-response.dto';
 import { CategoryPaginationDto } from './dtos/category-pagination.dto';
 import { ArticleResponseDto } from './dtos/article-response.dto';
+import { TrendingPaginationDto } from './dtos/trending-pagination.dto';
 
 @Controller('articles')
 export class ArticlesController {
@@ -59,6 +60,34 @@ export class ArticlesController {
             query.category,
             query.page,
             query.pageSize,
+        );
+    }
+
+    @ApiOperation({
+        summary: 'Get trending articles sorted by similarity score',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Returns trending articles sorted by similarity score',
+        type: PaginatedArticlesResponseDto,
+    })
+    @Get('trending')
+    async getTrendingArticles(
+        @Query() query: TrendingPaginationDto,
+    ): Promise<PaginatedArticlesResponseDto> {
+        if (query.category) {
+            return this.articlesService.getTrendingArticlesByCategory(
+                query.category,
+                query.page,
+                query.pageSize,
+                query.minScore || 0,
+            );
+        }
+
+        return this.articlesService.getTrendingArticles(
+            query.page,
+            query.pageSize,
+            query.minScore || 0,
         );
     }
 
