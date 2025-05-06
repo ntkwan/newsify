@@ -192,11 +192,7 @@ export class SearchService {
                             ? {
                                   multi_match: {
                                       query: query,
-                                      fields: [
-                                          'title^3',
-                                          'summary^2',
-                                          'content',
-                                      ],
+                                      fields: ['title'],
                                       type: 'best_fields',
                                       operator: 'and',
                                       fuzziness: 'AUTO',
@@ -204,6 +200,7 @@ export class SearchService {
                               }
                             : { match_all: {} },
                     _source: true,
+                    sort: [{ publishDate: { order: 'desc' } }, '_score'],
                     highlight: {
                         fields: {
                             title: {},
