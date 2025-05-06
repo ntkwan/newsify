@@ -74,4 +74,46 @@ export class ArticleRepository {
             order: [['publishDate', 'DESC']],
         });
     }
+
+    async findTrendingArticles(
+        page: number = 1,
+        pageSize: number = 10,
+        minScore: number = 0,
+    ): Promise<{ rows: Article[]; count: number }> {
+        return this.articleModel.findAndCountAll({
+            where: {
+                similarityScore: {
+                    [Op.gte]: minScore,
+                },
+            },
+            limit: pageSize,
+            offset: (page - 1) * pageSize,
+            order: [
+                ['similarityScore', 'DESC'],
+                ['publishDate', 'DESC'],
+            ],
+        });
+    }
+
+    async findTrendingArticlesByCategory(
+        category: string,
+        page: number = 1,
+        pageSize: number = 10,
+        minScore: number = 0,
+    ): Promise<{ rows: Article[]; count: number }> {
+        return this.articleModel.findAndCountAll({
+            where: {
+                mainCategory: category,
+                similarityScore: {
+                    [Op.gte]: minScore,
+                },
+            },
+            limit: pageSize,
+            offset: (page - 1) * pageSize,
+            order: [
+                ['similarityScore', 'DESC'],
+                ['publishDate', 'DESC'],
+            ],
+        });
+    }
 }
