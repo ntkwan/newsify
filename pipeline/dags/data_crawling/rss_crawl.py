@@ -100,16 +100,24 @@ def normalize_and_enrich(entry, category):
     
 def get_articles_full():
     rss_map = get_rss_urls()
-    res = []
+    res = [] 
+    visited_urls = set()
     
-    for category, rss_url in rss_map.items():
+    sorted_categories = sorted(rss_map.items(), key=lambda x: 0 if 'top_stories' in x[0] else 1)
+   
+    for category, rss_url in sorted_categories:
         feed = feedparser.parse(rss_url)
-        entries = feed.entries
         
-        for entry in entries:
+        for entry in feed.entries:
+            url = entry.get("link", "")
+            if url in visited_urls:
+                continue
+            visited_urls.add(url)
+            
             enriched_article = normalize_and_enrich(entry, category)
-            res.append(enriched_article)
-    
+            if enriched_article:
+                res.append(enriched_article)
+                    
     return res
 
 if __name__ == "__main__":
