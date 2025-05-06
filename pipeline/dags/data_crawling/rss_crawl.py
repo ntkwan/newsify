@@ -4,7 +4,7 @@ from datetime import datetime
 import yaml
 import os
 from dateutil import parser as dateparser
-import json
+from s3_uploader import S3BatchUploader
 
 def get_rss_urls():
     base_dir = os.path.dirname(__file__)  
@@ -111,10 +111,15 @@ def get_articles_full():
             res.append(enriched_article)
     
     return res
-    
+
 if __name__ == "__main__":
     articles = get_articles_full()
-    print(f"✅ Total articles fetched: {len(articles)}")
+    print(f"Total articles fetched: {len(articles)}")
    
+    uploader = S3BatchUploader()
+    for article in articles:
+        uploader.add_item(article)
+    uploader.finish()
+
     
     
