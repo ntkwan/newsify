@@ -16,6 +16,7 @@ graph LR
   ArticlesModule-->ConfigModule
   ArticlesModule-->MailerCoreModule
   ArticlesModule-->RedisCoreModule
+  ArticlesModule-->SearchModule
   ArticlesModule-->SequelizeCoreModule
   ArticlesModule-->SequelizeModule
   AuthModule-->ConfigHostModule
@@ -74,6 +75,11 @@ graph LR
   RedisModule-->MailerCoreModule
   RedisModule-->RedisCoreModule
   RedisModule-->SequelizeCoreModule
+  SearchModule-->ConfigHostModule
+  SearchModule-->ConfigModule
+  SearchModule-->MailerCoreModule
+  SearchModule-->RedisCoreModule
+  SearchModule-->SequelizeCoreModule
   SequelizeCoreModule-->ConfigHostModule
   SequelizeCoreModule-->ConfigModule
   SequelizeCoreModule-->MailerCoreModule
