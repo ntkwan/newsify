@@ -33,6 +33,9 @@ jobs:
   build-and-push:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.determine_tag.outputs.tag }}
+      env: ${{ steps.determine_tag.outputs.env }}
     
     steps:
       - name: Checkout code
@@ -59,12 +62,15 @@ jobs:
           # Determine the tag based on branch
           if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "env=main" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=dev" >> $GITHUB_OUTPUT
           else
             # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
       
       - name: Build and push
@@ -102,3 +108,14 @@ jobs:
             REDIS_USER=${{ secrets.REDIS_USER }}
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             REDIS_CHANNEL=${{ secrets.REDIS_CHANNEL }}
+
+  update-infrastructure:
+    needs: build-and-push
+    uses: ./.github/workflows/infrastructure-update.yml
+    with:
+      service: audio-service
+      tag: ${{ needs.build-and-push.outputs.tag }}
+      env: ${{ needs.build-and-push.outputs.env }}
+      source_branch: ${{ github.ref_name }}
+    secrets:
+      ARGOCD_GITHUB_TOKEN: ${{ secrets.ARGOCD_GITHUB_TOKEN }}

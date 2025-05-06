@@ -37,6 +37,9 @@ jobs:
   build-and-push:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.determine_tag.outputs.tag }}
+      env: ${{ steps.determine_tag.outputs.env }}
     
     steps:
       - name: Checkout code
@@ -63,7 +66,7 @@ jobs:
           # Determine the tag based on branch
           if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
-            echo "env=dev" >> $GITHUB_OUTPUT
+            echo "env=main" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
             echo "env=dev" >> $GITHUB_OUTPUT
@@ -71,7 +74,7 @@ jobs:
             # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
-            echo "env=dev" >> $GITHUB_OUTPUT
+            echo "env=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
       
       - name: Build and push
@@ -102,75 +105,11 @@ jobs:
 
   update-infrastructure:
     needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code for SHA
-        uses: actions/checkout@v3
-        
-      - name: Set service name and tag
-        id: service_info
-        run: |
-          echo "SERVICE=trending-service" >> $GITHUB_ENV
-          
-          # Extract branch name from GITHUB_REF
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          
-          # Get short commit SHA
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          
-          # Determine the env and tag based on branch
-          if [[ "$BRANCH_NAME" == "main" ]]; then
-            echo "ENV=dev" >> $GITHUB_ENV
-            echo "TAG=latest" >> $GITHUB_ENV
-          elif [[ "$BRANCH_NAME" == "dev" ]]; then
-            echo "ENV=dev" >> $GITHUB_ENV
-            echo "TAG=dev-${SHORT_SHA}" >> $GITHUB_ENV
-          else
-            # For feature branches
-            echo "ENV=dev" >> $GITHUB_ENV
-            # Extract the branch name, replace / with -
-            SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
-            echo "TAG=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_ENV
-          fi
-          
-          echo "SOURCE_BRANCH=${BRANCH_NAME}" >> $GITHUB_ENV
-
-      - name: Checkout infrastructure branch
-        uses: actions/checkout@v3
-        with:
-          ref: infrastructure
-          token: ${{ secrets.ARGOCD_GITHUB_TOKEN }}  # Use a token with write permissions
-      
-      - name: Configure Git
-        run: |
-          git config user.name "ArgoCD Bot"
-          git config user.email "argocd-bot@example.com"
-      
-      - name: Update image tag in Helm values
-        run: |
-          echo "Updating $SERVICE in charts/$ENV/values.yaml to tag: $TAG"
-          
-          # Check if values.yaml exists
-          if [[ ! -f "charts/$ENV/values.yaml" ]]; then
-            echo "Error: charts/$ENV/values.yaml does not exist!"
-            exit 1
-          fi
-          
-          # Update the tag in values.yaml for the specific service
-          yq -i '.services."trending-service".tag = env(TAG)' "charts/$ENV/values.yaml" || \
-          sed -i "s/\(trending-service:.*\n.*containerName:.*\n.*image:.*\n.*tag:\).*/\1 $TAG/" "charts/$ENV/values.yaml"
-          
-          # Show the diff for debugging
-          git diff
-      
-      - name: Commit and push if there are changes
-        run: |
-          # Check if there are changes to commit
-          if [[ -z $(git status --porcelain) ]]; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          
-          git add charts/$ENV/values.yaml
-          git commit -m "Update $SERVICE image tag to $TAG (from branch $SOURCE_BRANCH) [skip ci]"
-          git push
+    uses: ./.github/workflows/infrastructure-update.yml
+    with:
+      service: trending-service
+      tag: ${{ needs.build-and-push.outputs.tag }}
+      env: ${{ needs.build-and-push.outputs.env }}
+      source_branch: ${{ github.ref_name }}
+    secrets:
+      ARGOCD_GITHUB_TOKEN: ${{ secrets.ARGOCD_GITHUB_TOKEN }}

@@ -1,0 +1,91 @@
+name: Update Infrastructure
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+        description: 'The service name (e.g., trending-service, audio-service)'
+      tag:
+        required: true
+        type: string
+        description: 'The image tag to update'
+      env:
+        required: true
+        type: string
+        description: 'The environment (e.g., main, dev, feature branch)'
+      source_branch:
+        required: true
+        type: string
+        description: 'The source branch that triggered the update'
+    secrets:
+      ARGOCD_GITHUB_TOKEN:
+        required: true
+
+jobs:
+  update-infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate unique ID
+        id: generate_id
+        run: |
+          echo "update_id=$(date +'%Y%m%d%H%M%S')-${{ github.run_id }}" >> $GITHUB_OUTPUT
+      
+      - name: Checkout infrastructure branch
+        uses: actions/checkout@v3
+        with:
+          ref: infrastructure
+          token: ${{ secrets.ARGOCD_GITHUB_TOKEN }}  # Use a token with write permissions
+      
+      - name: Configure Git
+        run: |
+          git config user.name "ArgoCD Bot"
+          git config user.email "argocd-bot@example.com"
+      
+      - name: Update image tag in Helm values
+        run: |
+          echo "Collecting updates for service ${{ inputs.service }} in charts/${{ inputs.env }}/values.yaml to tag: ${{ inputs.tag }}"
+          
+          # Check if values.yaml exists
+          if [[ ! -f "charts/${{ inputs.env }}/values.yaml" ]]; then
+            echo "Error: charts/${{ inputs.env }}/values.yaml does not exist!"
+            exit 1
+          fi
+          
+          # Update the tag in values.yaml for the specific service
+          if command -v yq >/dev/null 2>&1; then
+            yq -i '.services."${{ inputs.service }}".tag = "${{ inputs.tag }}"' "charts/${{ inputs.env }}/values.yaml"
+          else
+            # Fallback to sed if yq is not available
+            sed -i "s/\\(${{ inputs.service }}:.*\\n.*containerName:.*\\n.*image:.*\\n.*tag:\\).*/\\1 ${{ inputs.tag }}/" "charts/${{ inputs.env }}/values.yaml"
+          fi
+          
+          # Create or update the pending updates file
+          UPDATES_FILE=".pending-updates-${{ steps.generate_id.outputs.update_id }}"
+          
+          if [[ ! -f "$UPDATES_FILE" ]]; then
+            echo "services:" > "$UPDATES_FILE"
+          fi
+          
+          echo "  - name: ${{ inputs.service }}" >> "$UPDATES_FILE"
+          echo "    tag: ${{ inputs.tag }}" >> "$UPDATES_FILE"
+          echo "    branch: ${{ inputs.source_branch }}" >> "$UPDATES_FILE"
+          
+          # Show the diff for debugging
+          git diff
+      
+      - name: Commit and push updates
+        run: |
+          # Check if there are changes to commit
+          if [[ -z $(git status --porcelain) ]]; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add charts/${{ inputs.env }}/values.yaml
+          git commit -m "Update services image tags [skip ci]
+
+          Updated services:
+          - ${{ inputs.service }} to ${{ inputs.tag }} (from branch ${{ inputs.source_branch }})"
+          git push 
