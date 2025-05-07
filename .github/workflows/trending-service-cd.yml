@@ -102,6 +102,9 @@ jobs:
             REDIS_USER=${{ secrets.REDIS_USER }}
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             REDIS_CHANNEL=${{ secrets.REDIS_CHANNEL }}
+            ELS_IP=${{ secrets.ELS_IP }}
+            ELS_USERNAME=${{ secrets.ELS_USERNAME }}
+            ELS_PASSWORD=${{ secrets.ELS_PASSWORD }}
             
       - name: Set output variables
         id: set_output_vars
