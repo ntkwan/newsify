@@ -15,7 +15,7 @@ services:
   audio-service:
     containerName: audio-service
     image: nkwn/newsify-audio-service
-    tag: dev-413bca5
+    tag: dev-59683d4
     port: 8000
     ingress:
       enabled: true
