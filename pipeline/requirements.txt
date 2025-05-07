@@ -1,0 +1,16 @@
+scrapy
+user-agent
+scrapy-user-agents
+boto3
+python-dotenv
+apache-airflow
+delta-spark 
+psycopg2-binary 
+supabase
+fuzzywuzzy
+RapidFuzz
+feedparser
+newspaper3k
+PyYAML
+lxml_html_clean
+nanoid

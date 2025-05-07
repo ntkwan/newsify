@@ -1,0 +1,14 @@
+FROM apache/airflow:2.10.5
+
+COPY requirements.txt /requirements.txt
+
+RUN pip3 install --no-cache-dir -r /requirements.txt
+
+WORKDIR /opt/airflow
+
+COPY ./dags /opt/airflow/dags
+COPY ./plugins /opt/airflow/plugins
+COPY ./dags/data_crawling /opt/airflow/data_crawling
+COPY .env /opt/airflow/.env  
+
+EXPOSE 8080
