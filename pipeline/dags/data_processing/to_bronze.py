@@ -6,6 +6,8 @@ from delta.tables import DeltaTable
 from pyspark.sql.types import *
 from pyspark.sql.functions import (regexp_replace, col, lower, to_timestamp, unix_timestamp, date_format, 
 trim, broadcast, from_utc_timestamp, hour, minute, dayofmonth, month, year, lit, current_timestamp, when, current_date, to_json, struct)
+from datetime import datetime, date
+import argparse
 
 # import findspark
 # findspark.init()
@@ -16,6 +18,7 @@ def create_spark_session():
     spark = SparkSession.builder \
     .appName("RawToBronze") \
     .master("local[*]") \
+    .config("spark.driver.memory", "4g") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
@@ -56,7 +59,7 @@ default_schema = StructType.fromJson(schema_json) \
         '_corrupt',
         StringType(),
         True,
-        metadata={'comment': 'invalid rows go into _corrupt rather than simply being dropped'}
+        metadata={'comment': 'invalid rows go into _corrupt'}
     ))
 
 def define_schema():
@@ -90,15 +93,20 @@ def save_to_bronze(df, s3_output_path: str):
     try:
         if "day" in df.columns:
             df = df.withColumn("day", col("day").cast("integer"))
-        df = df.cache()
+        df = df.withColumn("ingest_time", current_timestamp()) \
+            .withColumn("ingest_date", date_format(col("ingest_time"), "yyyy-MM-dd")) \
+            .withColumn("ingest_hour", date_format(col("ingest_time"), "HH"))
+            
         df.write.format("delta") \
             .mode("append") \
+            .partitionBy("ingest_date", "ingest_hour") \
             .option("mergeSchema", "true") \
             .save(s3_output_path)
         print(f"Successfully saved data to bronze layer: {s3_output_path}")
         
+        df = df.cache()
         error_df = df.filter(col("_corrupt").isNotNull())
-        if not error_df.isEmpty():
+        if error_df.count() > 0:
             error_df.write.format("delta") \
                 .mode("append") \
                 .save(f"{s3_output_path}_errors")
@@ -112,14 +120,25 @@ def save_to_bronze(df, s3_output_path: str):
         df.show(truncate=False)
         raise
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--date', type=str, help='Date in YYYY-MM-DD format. Defaults to today.')
+    args = parser.parse_args()
+    return args
+
 if __name__ == "__main__":
-    s3_input_path = "s3a://newsifyteam12/raw_data/*/*.json"
+    args = parse_args()
+    # Lấy ngày từ tham số hoặc mặc định là hôm nay
+    process_date = args.date or date.today().strftime('%Y-%m-%d')
+    print(f"Processing raw data for date: {process_date}")
+
+    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/*.json"
     s3_output_path = "s3a://newsifyteam12/bronze_data/blogs_list"
     
     spark = create_spark_session()
     known_schema = get_delta_schema(spark, s3_output_path)
     df = read_json(spark, s3_input_path, known_schema)
-    df = df.withColumn("ingest_time", current_timestamp())
+    # df = df.withColumn("ingest_time", current_timestamp())
     save_to_bronze(df, s3_output_path)
     print("Data saved to bronze layer successfully.")
     
