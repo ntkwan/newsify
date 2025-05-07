@@ -63,7 +63,7 @@ jobs:
           
           # Determine the tag based on branch
           if [[ "$BRANCH_NAME" == "main" ]]; then
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest-${SHORT_SHA}" >> $GITHUB_OUTPUT
             echo "env=staging" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
