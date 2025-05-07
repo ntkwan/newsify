@@ -4,11 +4,12 @@ import os
 from dotenv import load_dotenv
 from pyspark.sql.functions import *
 from supabase import create_client, Client
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import pandas as pd
 import redis
 import json
 import pytz
+from pathlib import Path
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ def create_spark_session():
         
     return spark
 
-def send_notification(update_type="general", details=None):
+def send_notification(update_type="general", details=None, from_time=None, to_time=None):
     r = None
     try:
         if REDIS_USERNAME and REDIS_PASSWORD:
@@ -68,6 +69,12 @@ def send_notification(update_type="general", details=None):
         if details:
             message["details"] = details
         
+        if from_time and to_time:
+            message["time_range"] = {
+                "from": from_time,
+                "to": to_time
+            }
+            
         json_message = json.dumps(message)
         result = r.publish(REDIS_CHANNEL, json_message)
         print(f"Notification sent to channel {REDIS_CHANNEL}: {message}")
@@ -93,7 +100,70 @@ def send_notification(update_type="general", details=None):
             except:
                 pass
 
-def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
+def get_time_slot(_=None) -> tuple:
+    now = datetime.now(pytz.timezone("Asia/Ho_Chi_Minh"))
+    current_hour = now.hour
+    if 0 <= current_hour < 5:
+        return (0, 5)
+    elif 5 <= current_hour < 11:
+        return (5, 11)
+    elif 11 <= current_hour < 17:
+        return (11, 17)
+    elif 17 <= current_hour < 24:
+        return (17, 23)
+
+def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
+    try:
+        ingest_date = process_date.strftime('%Y-%m-%d')
+        hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
+        hours_str = ",".join([f"'{h}'" for h in hours_to_read])
+
+        df = spark.read.format("delta").load(s3_base_path).where(
+            f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
+        )
+
+        record_count = df.count()
+        print(f"Loaded {record_count} records from silver data")
+        return df if record_count > 0 else spark.createDataFrame([], df.schema)
+    except Exception as e:
+        print(f"Error reading data from silver: {str(e)}")
+        raise
+
+# def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
+#     try:
+#         # current_time = datetime.now(pytz.UTC)
+#         # ingest_date = process_date.strftime('%Y-%m-%d')
+#         # hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
+#         # paths_to_read = [f"{s3_base_path}/processed_date={ingest_date}/processed_hour={hour}" for hour in hours_to_read]
+#         # dfs = []
+
+#             try:
+#                 df = spark.read.format("delta").load(s3_base_path).where(
+#                     f"processed_date = '{ingest_date}' AND processed_hour IN ({','.join(hours_to_read)})"
+#                 )
+
+#                 record_count = df.count()
+#                 print(f"Loaded data from {path} with {record_count} records")
+                
+#                 if record_count > 0:  # Only append if data exists
+#                     dfs.append(df)
+#             except Exception as e:
+#                 print(f"Skipping {path} due to error: {str(e)}")
+#                 continue 
+        
+#         if dfs:
+#             final_df = dfs[0]
+#             for df in dfs[1:]:
+#                 final_df = final_df.union(df)
+#             return final_df
+#         else:
+#             print("No data found in the specified time range.")
+#             return spark.createDataFrame([], StructType())
+#     except Exception as e:
+#         print(f"Error reading data from silver: {str(e)}")
+#         raise
+
+def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date):
     try:
         # print(f"supabase_url: {supabase_url}")
         # print(f"supabase_key: {supabase_key}")
@@ -108,18 +178,25 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
             last_ingest_time = "1970-01-01T00:00:00Z"
             print("No last ingest time found in control table. Processing all records")
         
-        # Read data from Silver layer
-        silver_df = spark.read \
-            .format("delta") \
-            .load(s3_input_path)
+        current_hour = int(datetime.now(pytz.UTC).strftime("%H"))
+        start_hour, end_hour = get_time_slot(current_hour)
         
-        # print(f"s3 path: {s3_input_path}")
+        if start_hour is None or end_hour is None:
+            print(f"Invalid current hour: {current_hour}")
+            return 0
         
-        # df_with_files = silver_df.withColumn("input_file", input_file_name())
-        # df_with_files.select("input_file").distinct().show(truncate=False)
+        effective_date = process_date
+        if start_hour == 0:
+            effective_date = process_date - timedelta(days=1)
         
+        # time range for notification
+        from_time = f"{start_hour}h {effective_date.strftime('%d/%m')}"
+        to_time = f"{end_hour}h {effective_date.strftime('%d/%m')}"
+        
+        # read data from silver layer
+        silver_df = read_data_silver(spark, s3_base_path, effective_date, start_hour, end_hour)
         record_count = silver_df.count()
-        print(f"Reading {record_count} records from Silver layer: {s3_input_path}")
+        print(f"Reading {record_count} records from Silver layer")
         
         if record_count == 0:
             print("No new records to process")
@@ -133,6 +210,7 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
         if new_record_count == 0:
             print("No new records to process after filtering")
             return None
+        
         
        # Create publish_date from year, month_number, day, hour, minute
         silver_df = silver_df.withColumn(
@@ -188,8 +266,11 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
             details = {
                 "processed_rows": total_rows,
                 "table": table_name,
+                "date": effective_date.strftime('%Y-%m-%d'),
+                "hours": list(range(start_hour, end_hour + 1))
             }
-            # send_notification(update_type="general", details=details)
+            
+            send_notification(update_type="general", details=details, from_time=from_time, to_time=to_time)
             print(f"Notification sent for {total_rows} new records")
             
         except APIError as e:
@@ -198,7 +279,7 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
             
         result_row = silver_df.agg(max("ingest_time").alias("max_ingest_time")).collect()[0]
         max_ingest_time = result_row["max_ingest_time"]    
-        # max_ingest_time = silver_df.agg(max("ingest_time").alias("max_ingest_time")).collect()[0][max_ingest_time]       
+        
         if max_ingest_time:
             max_ingest_time_iso = max_ingest_time.isoformat()
             supabase.table("control_table").upsert(
@@ -209,32 +290,36 @@ def save_to_supabase(df, s3_input_path, supabase_url, supabase_key, table_name):
         else:
             print(f"No ingest time to update.")
             
-        return df
+        return total_rows   
+        # return df
     except Exception as e:
         print(f"Error saving data to Supabase: {str(e)}")
         raise
     
 if __name__ == "__main__":
-    s3_input_path = "s3a://newsifyteam12/silver_data/blogs_list/"
+    s3_base_path = "s3a://newsifyteam12/silver_data/blogs_list/"
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY")
     table_name = "Articles"
+    process_date = date.today()
+    
     spark = create_spark_session()
     
-    df = save_to_supabase(spark, s3_input_path, supabase_url, supabase_key, table_name)
+    # df = save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name)
+    total_rows = save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date)
     
-    if df is not None:
-        details = {
-            "processed_rows": len(df),
-            "table": table_name,
-        }
-        send_notification(update_type="general", details=details)
-    else:
-        details = {
-            "processed_rows": 0,
-            "table": table_name,
-            "message": "No new records to process"
-        }
-        send_notification(update_type="general", details=details)
+    # if df is not None:
+    #     details = {
+    #         "processed_rows": len(df),
+    #         "table": table_name,
+    #     }
+    #     send_notification(update_type="general", details=details)
+    # else:
+    #     details = {
+    #         "processed_rows": 0,
+    #         "table": table_name,
+    #         "message": "No new records to process"
+    #     }
+    #     send_notification(update_type="general", details=details)
     
     spark.stop()

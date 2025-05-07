@@ -98,6 +98,7 @@ def save_to_bronze(df, s3_output_path: str):
             .withColumn("ingest_hour", date_format(col("ingest_time"), "HH"))
             
         df.write.format("delta") \
+            .option("maxRecordsPerFile", 5000) \
             .mode("append") \
             .partitionBy("ingest_date", "ingest_hour") \
             .option("mergeSchema", "true") \
@@ -132,7 +133,7 @@ if __name__ == "__main__":
     process_date = args.date or date.today().strftime('%Y-%m-%d')
     print(f"Processing raw data for date: {process_date}")
 
-    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/*.json"
+    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/*/*.json"
     s3_output_path = "s3a://newsifyteam12/bronze_data/blogs_list"
     
     spark = create_spark_session()
