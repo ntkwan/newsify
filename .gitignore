@@ -3,3 +3,15 @@ frontend/.env.local
 /frontend/.next
 /frontend/node_modules
 frontend/next-env.d.ts
+backend/.env
+/backend/dist
+/backend/node_modules
+services/audio-service/.env
+/backend/node_modules
+/services/audio-service/app/__pycache__
+/services/audio-service/venv
+/services/audio-service/app/services/__pycache__
+services/trending-service/.env
+/services/trending-service/app/__pycache__
+/services/trending-service/app/services/__pycache__
+/services/trending-service/venv

@@ -1,13 +1,13 @@
-namespace: newsify-dev
+namespace: newsify-staging
 services:
   backend:
     containerName: newsify-backend
     image: nkwn/newsify-backend
-    tag: "dev-26d7bf6"
+    tag: "latest"
     port: 8080
     ingress:
       enabled: true
-      host: dev.backend.id.vn
+      host: backend.id.vn
       path: "/api"
       annotations:
         nginx.ingress.kubernetes.io/rewrite-target: /$2
@@ -15,11 +15,11 @@ services:
   audio-service:
     containerName: audio-service
     image: nkwn/newsify-audio-service
-    tag: dev-26d7bf6
+    tag: latest
     port: 8000
     ingress:
       enabled: true
-      host: dev.backend.id.vn
+      host: backend.id.vn
       path: "/audio"
       annotations:
         nginx.ingress.kubernetes.io/rewrite-target: /$2
@@ -27,11 +27,11 @@ services:
   trending-service:
     containerName: trending-service
     image: nkwn/newsify-trending-service
-    tag: dev-26d7bf6
+    tag: latest
     port: 8001
     ingress:
       enabled: true
-      host: dev.backend.id.vn
+      host: staging.backend.id.vn
       path: "/trending"
       annotations:
         nginx.ingress.kubernetes.io/rewrite-target: /$2
