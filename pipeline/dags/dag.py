@@ -3,7 +3,10 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from pendulum import timezone
+import pendulum
+
+
+local_tz = pendulum.timezone("Asia/Ho_Chi_Minh")
 
 default_args = {
     'owner': 'thuyduong',
@@ -16,19 +19,21 @@ default_args = {
 }
 
 dag = DAG(
-    'cnn_scraping',
+    'news_scraping',
     default_args=default_args,
-    description='DAG for scraping cnn website',
-    schedule_interval='0 0,5,11,17 * * *', # Chạy 4 lần/ngày: 00:00, 05:00, 11:00, 17:00
-   # schedule_interval='0 */6 * * *',  # Chạy 4 lần/ngày: 00:00, 06:00, 12:00, 18:00
-#    dag_timezone=timezone("Asia/Ho_Chi_Minh"),
+    description='DAG for scraping rss feeds',
+    schedule_interval='0 * * * *', # Mỗi giờ,
+    # schedule_interval='0 0,5,11,17 * * *', # Chạy 4 lần/ngày: 00:00, 05:00, 11:00, 17:00
+    catchup=False,
+    tags=['scraping', 'rss']
+
 )
 
 run_crawling_task = BashOperator(
     task_id='run_crawling_task',
-    bash_command='cd /opt/airflow/dags/news_scraper && scrapy crawl cnn',
+    bash_command='python /opt/airflow/dags/data_crawling/rss_crawl.py',
     dag=dag
 )
 
 # Set task dependencies 
-run_crawling_task 
+# run_crawling_task 

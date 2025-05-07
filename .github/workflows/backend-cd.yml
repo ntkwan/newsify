@@ -1,7 +1,9 @@
 name: Backend Service CD
 
-on: [push]
-
+on:
+  push:
+    branches: [ main, dev ]
+    
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,6 +34,9 @@ jobs:
   build-and-push:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set_output_vars.outputs.tag }}
+      env: ${{ steps.set_output_vars.outputs.env }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -57,12 +62,15 @@ jobs:
           # Determine the tag based on branch
           if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "env=staging" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=dev" >> $GITHUB_OUTPUT
           else
             # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
       
       - name: Build and push
@@ -94,3 +102,23 @@ jobs:
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
             OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
+            ELS_IP=${{ secrets.ELS_IP }}
+            ELS_USERNAME=${{ secrets.ELS_USERNAME }}
+            ELS_PASSWORD=${{ secrets.ELS_PASSWORD }}
+            
+      - name: Set output variables
+        id: set_output_vars
+        run: |
+          echo "tag=${{ steps.determine_tag.outputs.tag }}" >> $GITHUB_OUTPUT
+          echo "env=${{ steps.determine_tag.outputs.env }}" >> $GITHUB_OUTPUT
+
+  update-infrastructure:
+    needs: build-and-push
+    uses: ./.github/workflows/infrastructure-update.yml
+    with:
+      service: backend
+      tag: ${{ needs.build-and-push.outputs.tag }}
+      env: ${{ needs.build-and-push.outputs.env }}
+      source_branch: ${{ github.ref_name }}
+    secrets:
+      ARGOCD_GITHUB_TOKEN: ${{ secrets.ARGOCD_GITHUB_TOKEN }}

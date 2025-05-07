@@ -2,9 +2,10 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy import inspect, func, select
 from sqlalchemy.orm import Session
 from uuid import UUID
-import json
 from datetime import datetime, timedelta
 from .database import trending_articles_table, articles_table, get_supabase_session, get_digitalocean_session, digitalocean_engine, metadata
+from .elasticsearch_service import ElasticsearchService
+
 
 class TrendingService:
     """Service for working with trending articles."""
@@ -12,7 +13,55 @@ class TrendingService:
     def __init__(self):
         self._supabase_session = None
         self._digitalocean_session = None
+        self.es_service = ElasticsearchService()
     
+    async def save_trending_analysis(
+        self,
+        article_id,
+        url,
+        title,
+        trend,
+        similarity_score,
+        summary,
+        publish_date,
+        categories,
+        main_category,
+        image_url,
+        content
+    ):
+        trending_id = await self._save_to_database(
+            article_id,
+            url,
+            title,
+            trend,
+            similarity_score,
+            summary,
+            publish_date,
+            categories,
+            main_category,
+            image_url,
+            content
+        )
+        
+        if trending_id:
+            article_data = {
+                "article_id": article_id,
+                "url": url,
+                "title": title,
+                "trend": trend,
+                "similarity_score": similarity_score,
+                "summary": summary,
+                "publish_date": publish_date,
+                "categories": categories,
+                "main_category": main_category,
+                "image_url": image_url,
+                "content": content
+            }
+            
+            await self.es_service.index_trending_article(trending_id, article_data)
+        
+        return trending_id
+            
     def _get_supabase_session(self) -> Optional[Session]:
         """Get a Supabase database session."""
         try:
