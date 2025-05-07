@@ -11,10 +11,10 @@ spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - staging.backend.id.vn
+    - backend.id.vn
     secretName: staging-backend-id-vn-tls
   rules:
-  - host: staging.backend.id.vn
+  - host: backend.id.vn
     http:
       paths:
       - path: "/"
