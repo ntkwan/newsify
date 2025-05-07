@@ -12,7 +12,7 @@ class S3BatchUploader:
     def __init__(self):
         load_dotenv()
         self.bucket_name =os.getenv('S3_BUCKET_NAME')
-        self.batch_size = 1000
+        self.batch_size = 500
         self.prefix = 'raw_data'
         self.client = boto3.client(
             's3',
