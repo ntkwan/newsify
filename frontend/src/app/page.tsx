@@ -1,3 +1,5 @@
+'use client';
+
 import HeroSection from '@/components/sections/hero-section';
 import SearchSection from '@/components/sections/search-section';
 import TrendingNewsSection from '@/components/sections/trending-news-section';

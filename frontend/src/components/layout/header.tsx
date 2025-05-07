@@ -43,7 +43,7 @@ const Header: React.FC = () => {
                                 ></span>
                             </Link>
                             <Link
-                                href="/daily-news"
+                                href="/articles"
                                 className={`text-sm relative group ${pathname === '/daily-news' ? 'font-semibold' : ''}`}
                             >
                                 News

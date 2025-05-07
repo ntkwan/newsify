@@ -1,40 +1,36 @@
-import { ArticlesResponse } from '@/types/article';
-
-const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+import { Article } from '@/types/article';
 
 export class ArticleService {
     static async getArticles(
-        page: number = 1,
-        pageSize: number = 10,
+        page: number,
+        pageSize: number,
         search?: string,
-        dateRange?: string,
-    ): Promise<ArticlesResponse> {
-        const params = new URLSearchParams({
-            page: page.toString(),
-            pageSize: pageSize.toString(),
-        });
+        date?: string,
+        category?: string,
+    ): Promise<{ articles: Article[]; total: number }> {
+        let url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/articles`;
+
+        if (category && category !== 'All') {
+            url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/articles/categories`;
+        }
+
+        const params = new URLSearchParams();
+        params.set('page', page.toString());
+        params.set('pageSize', pageSize.toString());
 
         if (search) {
-            params.append('search', search);
+            params.set('search', search);
         }
 
-        if (dateRange) {
-            const [from, to] = dateRange.split(',');
-            params.append('from', from);
-            params.append('to', to);
+        if (date) {
+            params.set('date', date);
         }
 
-        const response = await fetch(
-            `${API_BASE_URL}/articles?${params.toString()}`,
-            {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            },
-        );
+        if (category && category !== 'All') {
+            params.set('category', category);
+        }
 
+        const response = await fetch(`${url}?${params.toString()}`);
         if (!response.ok) {
             throw new Error('Failed to fetch articles');
         }

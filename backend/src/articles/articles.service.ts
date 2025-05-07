@@ -79,6 +79,48 @@ export class ArticlesService {
         };
     }
 
+    async getTrendingArticles(
+        page: number = 1,
+        pageSize: number = 10,
+        minScore: number = 0,
+    ): Promise<PaginatedArticlesResponseDto> {
+        const { rows, count } =
+            await this.articleRepository.findTrendingArticles(
+                page,
+                pageSize,
+                minScore,
+            );
+
+        return {
+            articles: this.transformArticles(rows),
+            total: count,
+            page,
+            pageSize,
+        };
+    }
+
+    async getTrendingArticlesByCategory(
+        category: string,
+        page: number = 1,
+        pageSize: number = 10,
+        minScore: number = 0,
+    ): Promise<PaginatedArticlesResponseDto> {
+        const { rows, count } =
+            await this.articleRepository.findTrendingArticlesByCategory(
+                category,
+                page,
+                pageSize,
+                minScore,
+            );
+
+        return {
+            articles: this.transformArticles(rows),
+            total: count,
+            page,
+            pageSize,
+        };
+    }
+
     async getArticleById(id: string): Promise<ArticleResponseDto> {
         const article = await this.articleRepository.findById(id);
 
