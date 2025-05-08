@@ -479,7 +479,7 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
                     start_time = date_obj.replace(hour=first_hour, minute=0, second=0)
                     
-                    logger.info(f"[{ENVIRONMENT}] Processing articles from {start_time.isoformat()} for {hours_count} hours")
+                    logger.info(f"[{ENVIRONMENT}] Processing articles from {start_time.isoformat()} for {cnt_articles} articles")
                     
                     lock_key = f"trending_lock:{ENVIRONMENT}:{date_str}:{first_hour}"
                     lock_expiry = 3600  # 1 hour in seconds
