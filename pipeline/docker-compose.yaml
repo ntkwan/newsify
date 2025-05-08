@@ -50,23 +50,25 @@ x-airflow-common:
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.5}
-  # build: .
+  build: .
   environment:
     &airflow-common-env
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-    # AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    # AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
-    # AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    # AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    
-     
+    AIRFLOW__LOGGING__REMOTE_LOGGING: 'False'
+    AIRFLOW__LOGGING__TASK_LOG_READER: 'task'
+    AIRFLOW__LOGGING__LOGGING_LEVEL: 'INFO'
+    AIRFLOW__WEBSERVER__BASE_URL: http://localhost:8080
     # _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
@@ -78,7 +80,7 @@ x-airflow-common:
     # _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
-    # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -89,8 +91,8 @@ x-airflow-common:
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
-    # redis:
-    #   condition: service_healthy
+    redis:
+      condition: service_healthy
     postgres:
       condition: service_healthy
 
@@ -102,7 +104,7 @@ services:
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - airflow-db-volume:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -110,22 +112,21 @@ services:
       start_period: 5s
     restart: always
 
-  # redis:
-  #   image: redis:7.4-bookworm
-  #   expose:
-  #     - 6379
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "ping"]
-  #     interval: 10s
-  #     timeout: 30s
-  #     retries: 50
-  #     start_period: 30s
-  #   restart: always
+  redis:
+    image: redis:7.4-bookworm
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+    restart: always
 
   airflow-webserver:
     <<: *airflow-common
     command: webserver
-    # command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow webserver"
     ports:
       - "8080:8080"
     healthcheck:
@@ -143,7 +144,6 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
-    # command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow scheduler"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -156,34 +156,32 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
-  # airflow-worker:
-  #   <<: *airflow-common
-  #   command: celery worker
-  #   # command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow celery worker"
-  #   healthcheck:
-  #     # yamllint disable rule:line-length
-  #     test:
-  #       - "CMD-SHELL"
-  #       - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 30s
-  #   environment:
-  #     <<: *airflow-common-env
-  #     # Required to handle warm shutdown of the celery workers properly
-  #     # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
-  #     DUMB_INIT_SETSID: "0"
-  #   restart: always
-  #   depends_on:
-  #     <<: *airflow-common-depends-on
-  #     airflow-init:
-  #       condition: service_completed_successfully
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    healthcheck:
+      # yamllint disable rule:line-length
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      <<: *airflow-common-env
+      # Required to handle warm shutdown of the celery workers properly
+      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
+      DUMB_INIT_SETSID: "0"
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
 
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer
-    # command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow triggerer"
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
       interval: 30s
@@ -267,162 +265,81 @@ services:
     environment:
       <<: *airflow-common-env
       CONNECTION_CHECK_MAX_COUNT: "0"
-    # Workaround for entrypoint issue. See: https://github.com/apache/airflow/issues/16252
     command:
       - bash
       - -c
       - airflow
 
-  spark-master:
-    image: spark-image 
-    container_name: spark-master
-    networks:
-      - spark-network
-    entrypoint: ['/entrypoint.sh', 'master']
-    build: .
-    ports:
-      - "4040:4040"
-      - "9090:8080"
-      - "7077:7077"
-      - "3000:3000"
-    volumes:
-      - ./scripts:/opt/spark/work-dir/scripts
-      - C:/Users/User/Desktop/newsify/pipeline/dags/data-processing:/opt/spark/work-dir
-      - ./etl:/opt/spark/work-dir/etl
-      - spark-logs:/opt/spark/spark-events
-      - ./.env:/opt/spark/work-dir/.env
-    environment:
-      UPSTREAM_DRIVERNAME: postgresql
-      UPSTREAM_HOST: postgres
-      UPSTREAM_PORT: '5432'
-      UPSTREAM_USERNAME: airflow
-      UPSTREAM_PASSWORD: airflow
-      UPSTREAM_DATABASE: airflow
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-
-  spark-history-server:
-    container_name: spark-history
-    image: spark-image
-    networks:
-      - spark-network
-    entrypoint: ['/entrypoint.sh', 'history']
-    depends_on:
-      - spark-master
-    volumes:
-      - spark-logs:/opt/spark/spark-events
-    ports:
-      - '18080:18080'
-
-  spark-worker:
-    image: spark-image
-    container_name: spark-worker
-    depends_on:
-      - spark-master
-    entrypoint: ['/entrypoint.sh', 'worker']
-    networks:
-      - spark-network
-    volumes:
-      - ./scripts:/opt/spark/work-dir/scripts
-      - ./data-processing:/opt/spark/work-dir/data-processing
-      - spark-logs:/opt/spark/spark-events
-    environment:
-      UPSTREAM_DRIVERNAME: postgresql
-      UPSTREAM_HOST: postgres
-      UPSTREAM_PORT: '5432'
-      UPSTREAM_USERNAME: airflow
-      UPSTREAM_PASSWORD: airflow
-      UPSTREAM_DATABASE: airflow
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-
-  # spark-master:
-  #   container_name: spark-master
-  #   build: 
-  #     context: ./docker-setup/spark
-  #     dockerfile: ./docker-setup/spark/Dockerfile 
-  #   image: my-spark-delta
-  #   entrypoint: ['/entrypoint.sh', 'master']
-  #   healthcheck:
-  #     test: [ "CMD", "curl", "-f", "http://localhost:8088" ]
-  #     interval: 5s
-  #     timeout: 3s
-  #     retries: 3
-  #   volumes:
-  #     - ./etl:/opt/spark/work-dir/etl
-  #     - ./data-processing:/opt/spark/work-dir/data-processing
-  #     - spark-logs:/opt/spark/spark-events
-  #   environment:
-  #     UPSTREAM_DRIVERNAME: ${UPSTREAM_DRIVERNAME}
-  #     UPSTREAM_HOST: ${UPSTREAM_HOST}
-  #     UPSTREAM_PORT: ${UPSTREAM_PORT}
-  #     UPSTREAM_USERNAME: ${UPSTREAM_USERNAME}
-  #     UPSTREAM_PASSWORD: ${UPSTREAM_PASSWORD}
-  #     UPSTREAM_DATABASE: ${UPSTREAM_DATABASE}
-    
-  #   ports:
-  #     - '3000:3000' # Spark master Web UI
-  #     - '7077:7077' # For spark-node-to-spark-node queries
-  #     - '4040:4040' # Spark worker data
-  #     - '8889:8889' # Optionaly 
-  # spark-history-server:
-  #   container_name: spark-history
-  #   image: my-spark-delta
-  #   entrypoint: ['/entrypoint.sh', 'history']
-  #   depends_on:
-  #     - spark-master
-  #   volumes:
-  #     - spark-logs:/opt/spark/spark-events
-  #   ports:
-  #     - '18080:18080'
-
-  # spark-worker:
-  #   container_name: spark-worker
-  #   image: my-spark-delta
-  #   entrypoint: ['/entrypoint.sh', 'worker']
-  #   depends_on:
-  #     - spark-master
-  #   volumes:
-  #     - ./etl:/opt/spark/work-dir/etl
-  #     - ./data-processing:/opt/spark/work-dir/data-processing
-  #     - spark-logs:/opt/spark/spark-events
-  #   environment:
-  #     UPSTREAM_DRIVERNAME: ${UPSTREAM_DRIVERNAME}
-  #     UPSTREAM_HOST: ${UPSTREAM_HOST}
-  #     UPSTREAM_PORT: ${UPSTREAM_PORT}
-  #     UPSTREAM_USERNAME: ${UPSTREAM_USERNAME}
-  #     UPSTREAM_PASSWORD: ${UPSTREAM_PASSWORD}
-  #     UPSTREAM_DATABASE: ${UPSTREAM_DATABASE}
-
-  # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
-  # or by explicitly targeted on the command line e.g. docker-compose up flower.
-  # See: https://docs.docker.com/compose/profiles/
-  # flower:
-  #   <<: *airflow-common
-  #   command: celery flower
-  #   profiles:
-  #     - flower
-  #   ports:
-  #     - "5555:5555"
-  #   healthcheck:
-  #     test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 30s
-  #   restart: always
-  #   depends_on:
-  #     <<: *airflow-common-depends-on
-  #     airflow-init:
-  #       condition: service_completed_successfully
-
-
-networks:
-  spark-network:
-    driver: bridge
 
 volumes:
-  postgres-db-volume:
-  spark-logs:
+  airflow-db-volume:
+  # spark-logs:
+
+#   spark-master:
+#     image: spark-image 
+#     container_name: spark-master
+#     networks:
+#       - spark-network
+#     entrypoint: ['/entrypoint.sh', 'master']
+#     build: .
+#     ports:
+#       - "4040:4040"
+#       - "9090:8080"
+#       - "7077:7077"
+#       - "3000:3000"
+#     volumes:
+#       - ./scripts:/opt/spark/work-dir/scripts
+#       - C:/Users/User/Desktop/newsify/pipeline/dags/data-processing:/opt/spark/work-dir
+#       - ./etl:/opt/spark/work-dir/etl
+#       - spark-logs:/opt/spark/spark-events
+#       - ./.env:/opt/spark/work-dir/.env
+#     environment:
+#       UPSTREAM_DRIVERNAME: postgresql
+#       UPSTREAM_HOST: postgres
+#       UPSTREAM_PORT: '5432'
+#       UPSTREAM_USERNAME: airflow
+#       UPSTREAM_PASSWORD: airflow
+#       UPSTREAM_DATABASE: airflow
+#       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+#       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+#       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+
+#   spark-history-server:
+#     container_name: spark-history
+#     image: spark-image
+#     networks:
+#       - spark-network
+#     entrypoint: ['/entrypoint.sh', 'history']
+#     depends_on:
+#       - spark-master
+#     volumes:
+#       - spark-logs:/opt/spark/spark-events
+#     ports:
+#       - '18080:18080'
+
+#   spark-worker:
+#     image: spark-image
+#     container_name: spark-worker
+#     depends_on:
+#       - spark-master
+#     entrypoint: ['/entrypoint.sh', 'worker']
+#     networks:
+#       - spark-network
+#     volumes:
+#       - ./scripts:/opt/spark/work-dir/scripts
+#       - ./data-processing:/opt/spark/work-dir/data-processing
+#       - spark-logs:/opt/spark/spark-events
+#     environment:
+#       UPSTREAM_DRIVERNAME: postgresql
+#       UPSTREAM_HOST: postgres
+#       UPSTREAM_PORT: '5432'
+#       UPSTREAM_USERNAME: airflow
+#       UPSTREAM_PASSWORD: airflow
+#       UPSTREAM_DATABASE: airflow
+#       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+#       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+#       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+
+# networks:
+#   spark-network:
+#     driver: bridge

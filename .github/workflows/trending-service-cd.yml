@@ -37,6 +37,9 @@ jobs:
   build-and-push:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set_output_vars.outputs.tag }}
+      env: ${{ steps.set_output_vars.outputs.env }}
     
     steps:
       - name: Checkout code
@@ -62,13 +65,16 @@ jobs:
           
           # Determine the tag based on branch
           if [[ "$BRANCH_NAME" == "main" ]]; then
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=staging" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "dev" ]]; then
             echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=dev" >> $GITHUB_OUTPUT
           else
             # For any other branch, use branch name + commit SHA
             SAFE_BRANCH_NAME=$(echo $BRANCH_NAME | sed 's/\//-/g')
             echo "tag=${SAFE_BRANCH_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "env=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
       
       - name: Build and push
@@ -79,7 +85,6 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:${{ steps.determine_tag.outputs.tag }}
           build-args: |
             SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}
-            DATA_PATH=/app/data
             DB_NAME=${{ secrets.DB_NAME }}
             DB_PORT=${{ secrets.DB_PORT }}
             DATABASE=${{ secrets.DATABASE }}
@@ -91,3 +96,28 @@ jobs:
             DO_DB_HOST=${{ secrets.DO_DB_HOST }}
             DO_DB_USERNAME=${{ secrets.DO_DB_USERNAME }}
             DO_DB_PASSWORD=${{ secrets.DO_DB_PASSWORD }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_USER=${{ secrets.REDIS_USER }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_CHANNEL=${{ secrets.REDIS_CHANNEL }}
+            ELS_IP=${{ secrets.ELS_IP }}
+            ELS_USERNAME=${{ secrets.ELS_USERNAME }}
+            ELS_PASSWORD=${{ secrets.ELS_PASSWORD }}
+            
+      - name: Set output variables
+        id: set_output_vars
+        run: |
+          echo "tag=${{ steps.determine_tag.outputs.tag }}" >> $GITHUB_OUTPUT
+          echo "env=${{ steps.determine_tag.outputs.env }}" >> $GITHUB_OUTPUT
+
+  update-infrastructure:
+    needs: build-and-push
+    uses: ./.github/workflows/infrastructure-update.yml
+    with:
+      service: trending-service
+      tag: ${{ needs.build-and-push.outputs.tag }}
+      env: ${{ needs.build-and-push.outputs.env }}
+      source_branch: ${{ github.ref_name }}
+    secrets:
+      ARGOCD_GITHUB_TOKEN: ${{ secrets.ARGOCD_GITHUB_TOKEN }}

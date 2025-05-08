@@ -424,7 +424,9 @@ Here's the transcript:
                     timestamp_script=timestamped_script_json,
                     audio_url=uploaded_url,
                     length_seconds=podcast_length,
+                    links=[article.url for article in articles if hasattr(article, 'url') and article.url],
                 )
+                print(stmt)
                 db.execute(stmt)
                 db.commit()
                 print(f"Podcast saved to database with title '{podcast_title}' and publish_date {newest_date}")
@@ -439,6 +441,7 @@ Here's the transcript:
                 "transcript": transcript_data["fullTranscript"],
                 "timestampedTranscript": transcript_data["timestampedTranscript"],
                 "length_seconds": podcast_length,
+                "links": [article.url for article in articles if hasattr(article, 'url') and article.url],
             }
             
         except Exception as e:

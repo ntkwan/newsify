@@ -75,6 +75,7 @@ export class PodcastsService {
             timestamp_script: formattedPodcast.timestampScript,
             audio_url: formattedPodcast.audioUrl,
             length_seconds: formattedPodcast.lengthSeconds,
+            links: formattedPodcast.links,
         };
     }
 }
