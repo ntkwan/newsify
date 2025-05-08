@@ -3,15 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Dict, Any
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
+import random
+from datetime import timedelta
+import asyncio
 
-from .models import PodcastResponse, Article
+from .models import PodcastResponse
 from .services.podcast_service import podcast_service
-from .services.article_service import article_service
 from .services.redis_service import redis_service
-from .services.database import get_supabase_db, get_digitalocean_db
+from .services.database import get_digitalocean_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("app.main")
@@ -51,6 +53,41 @@ def handle_data_update(message: Dict[str, Any]) -> None:
             update_time = data_dict.get('timestamp')
             
             logger.info(f"Processing data update: type={update_type}, time={update_time}")
+            
+            if update_type == 'general' and 'details' in data_dict:
+                details = data_dict.get('details', {})
+                available_hours = details.get('hours', [])
+                date_str = details.get('date')
+                
+                if available_hours and date_str:
+                    selected_hour = random.choice(available_hours)
+                    
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                    start_time = date_obj.replace(hour=selected_hour, minute=0, second=0)
+                    end_time = start_time + timedelta(hours=1)
+                    
+                    time_window = {
+                        "start": start_time.isoformat(),
+                        "end": end_time.isoformat(),
+                        "hour": selected_hour,
+                        "date": date_str
+                    }
+                    
+                    logger.info(f"Selected time window: {time_window}")
+                    
+                    db = next(get_digitalocean_db())
+                    
+                    try:
+                        logger.info(f"Generating podcast for time window: {time_window['start']} to {time_window['end']}")
+                        podcast_result = asyncio.run(podcast_service.generate_podcast(
+                            time_window["start"],
+                            time_window["end"],
+                            db
+                        ))
+                        logger.info(f"Successfully generated podcast for time window: {selected_hour}h on {date_str}")
+                        logger.info(f"Podcast URL: {podcast_result.get('url', 'N/A')}")
+                    except Exception as podcast_error:
+                        logger.error(f"Failed to generate podcast: {str(podcast_error)}")
                 
         except json.JSONDecodeError:
             logger.warning(f"Received invalid JSON in data update: {data}")
