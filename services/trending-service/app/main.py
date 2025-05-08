@@ -21,7 +21,10 @@ load_dotenv()
 
 ENVIRONMENT = os.getenv("ENV", "unknown")
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger("app.main")
 
 logger.info(f"Starting trending service in {ENVIRONMENT} environment")

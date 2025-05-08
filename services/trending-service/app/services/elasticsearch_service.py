@@ -12,7 +12,6 @@ class ElasticsearchService:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
         self.es_host = os.getenv("ELS_IP")
         self.es_user = os.getenv("ELS_USERNAME")
         self.es_password = os.getenv("ELS_PASSWORD")
