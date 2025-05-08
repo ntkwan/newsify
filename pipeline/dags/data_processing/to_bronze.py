@@ -9,9 +9,6 @@ trim, broadcast, from_utc_timestamp, hour, minute, dayofmonth, month, year, lit,
 from datetime import datetime, date
 import argparse
 
-# import findspark
-# findspark.init()
-
 def create_spark_session():
     load_dotenv()
 
@@ -133,13 +130,12 @@ if __name__ == "__main__":
     process_date = args.date or date.today().strftime('%Y-%m-%d')
     print(f"Processing raw data for date: {process_date}")
 
-    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/*/*.json"
+    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/*.json"
     s3_output_path = "s3a://newsifyteam12/bronze_data/blogs_list"
     
     spark = create_spark_session()
     known_schema = get_delta_schema(spark, s3_output_path)
     df = read_json(spark, s3_input_path, known_schema)
-    # df = df.withColumn("ingest_time", current_timestamp())
     save_to_bronze(df, s3_output_path)
     print("Data saved to bronze layer successfully.")
     
