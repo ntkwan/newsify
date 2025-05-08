@@ -82,6 +82,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-audio-service:${{ steps.determine_tag.outputs.tag }}
           build-args: |
+            ENV=${{ steps.determine_tag.outputs.env }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             OPENAI_ENDPOINT=${{ secrets.OPENAI_ENDPOINT }}
             OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}

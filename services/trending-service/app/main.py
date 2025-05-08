@@ -11,13 +11,20 @@ from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from app.services.trending_service import TrendingService
-from uuid import UUID
 import uvicorn
 import json
 import logging
+import asyncio
 from app.services.redis_service import redis_service
 
 load_dotenv()
+
+ENVIRONMENT = os.getenv("ENV", "unknown")
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("app.main")
+
+logger.info(f"Starting trending service in {ENVIRONMENT} environment")
 
 app = FastAPI(
     title="Trending News API",
@@ -34,9 +41,6 @@ app.add_middleware(
 )
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("app.main")
 
 class TrendingKeyword(BaseModel):
     query: str
@@ -180,7 +184,12 @@ def analyze_article_trending(article_content: str, trends_data: List[Dict[str, A
 
 @app.get("/")
 async def root():
-    return {"message": "ok"}
+    return {
+        "message": "ok",
+        "service": "trending-service", 
+        "environment": ENVIRONMENT,
+        "processing_updates": ENVIRONMENT.lower() == "dev"
+    }
 
 @app.get("/trending", response_model=List[str])
 async def get_trending(country: str = Query("US", description="Country code for trending data")):
@@ -446,20 +455,74 @@ def handle_data_update(message: Dict[str, Any]) -> None:
     """
     try:
         data = message.get('data', '{}')
-        logger.info(f"Received data update notification: {data}")
+        logger.info(f"[{ENVIRONMENT}] Received data update notification: {data}")
+        
+        if ENVIRONMENT.lower() != "dev":
+            logger.info(f"[{ENVIRONMENT}] Skipping update processing - this environment is not configured to process updates")
+            return
         
         try:
             data_dict = json.loads(data)
             update_type = data_dict.get('update_type')
             update_time = data_dict.get('timestamp')
             
-            logger.info(f"Processing data update: type={update_type}, time={update_time}")
+            logger.info(f"[{ENVIRONMENT}] Processing data update: type={update_type}, time={update_time}")
             
-            
+            if update_type == 'general' and 'details' in data_dict:
+                details = data_dict.get('details', {})
+                available_hours = details.get('hours', [])
+                date_str = details.get('date')
+                
+                if available_hours and date_str:
+                    first_hour = min(available_hours)
+                    cnt_articles = details.get('processed_rows', 0)
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                    start_time = date_obj.replace(hour=first_hour, minute=0, second=0)
+                    
+                    logger.info(f"[{ENVIRONMENT}] Processing articles from {start_time.isoformat()} for {hours_count} hours")
+                    
+                    lock_key = f"trending_lock:{ENVIRONMENT}:{date_str}:{first_hour}"
+                    lock_expiry = 3600  # 1 hour in seconds
+                    
+                    if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
+                        logger.info(f"[{ENVIRONMENT}] Acquired lock for time range: {lock_key}")
+                        
+                        trending_service = TrendingService()
+                        
+                        try:
+                            articles = asyncio.run(trending_service.get_articles_from_time(
+                                start_time=start_time,
+                                limit=cnt_articles
+                            ))
+                            
+                            if articles:
+                                logger.info(f"[{ENVIRONMENT}] Found {len(articles)} articles to analyze")
+                                
+                                results = asyncio.run(analyze_latest_articles(
+                                    from_time=start_time.isoformat(),
+                                    limit=len(articles)
+                                ))
+                                
+                                logger.info(f"[{ENVIRONMENT}] Successfully analyzed {len(results)} articles for time range starting at {start_time.isoformat()}")
+                                
+                                completion_key = f"trending_completed:{ENVIRONMENT}:{date_str}:{first_hour}"
+                                redis_service.client.set(completion_key, "1", ex=86400)  # Keep for 24 hours
+                            else:
+                                logger.warning(f"[{ENVIRONMENT}] No articles found for time range starting at {start_time.isoformat()}")
+                        except Exception as processing_error:
+                            logger.error(f"[{ENVIRONMENT}] Failed to process articles: {str(processing_error)}")
+                            redis_service.client.delete(lock_key)
+                    else:
+                        logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, trending analysis already in progress or completed by another instance")
+                        
+                        completion_key = f"trending_completed:{ENVIRONMENT}:{date_str}:{first_hour}"
+                        if redis_service.client and redis_service.client.exists(completion_key):
+                            logger.info(f"[{ENVIRONMENT}] Trending analysis for {date_str} starting at hour {first_hour} has already been completed")
+                
         except json.JSONDecodeError:
-            logger.warning(f"Received invalid JSON in data update: {data}")
+            logger.warning(f"[{ENVIRONMENT}] Received invalid JSON in data update: {data}")
     except Exception as e:
-        logger.error(f"Error handling data update: {str(e)}")
+        logger.error(f"[{ENVIRONMENT}] Error handling data update: {str(e)}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -467,27 +530,17 @@ async def startup_event():
     redis_service.register_handler(DATA_UPDATES_CHANNEL, handle_data_update)
     
     if not redis_service.start():
-        logger.warning("Failed to start Redis service. Data update notifications will not work.")
+        logger.warning(f"[{ENVIRONMENT}] Failed to start Redis service. Data update notifications will not work.")
+    else:
+        if ENVIRONMENT.lower() == "dev":
+            logger.info(f"[{ENVIRONMENT}] Redis service started and ready to process updates")
+        else:
+            logger.info(f"[{ENVIRONMENT}] Redis service started, but this environment will not process updates")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources when the application shuts down."""
     redis_service.stop()
-
-@app.post("/process-updates", status_code=202)
-async def process_updates():
-    """
-    Manually trigger processing of recent data updates.
-    This endpoint can be called to process data without waiting for Redis notifications.
-    """
-    try:
-        logger.info("Manual update processing triggered")
-        return {"status": "processing", "message": "Update processing initiated"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process updates: {str(e)}"
-        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
