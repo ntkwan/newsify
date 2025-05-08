@@ -84,7 +84,6 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                     
                     logger.info(f"[{ENVIRONMENT}] Selected time window: {time_window}")
                     
-                    # Include environment in lock key for isolation
                     lock_key = f"podcast_lock:{ENVIRONMENT}:{date_str}:{selected_hour}"
                     lock_expiry = 3600  # 1 hour in seconds
                     
@@ -144,7 +143,7 @@ async def root():
         "status": "ok", 
         "service": "audio-service", 
         "environment": ENVIRONMENT,
-        "processing_updates": SHOULD_PROCESS_UPDATES
+        "processing_updates": ENVIRONMENT.lower() == "dev"
     }
         
 @app.post("/podcast", response_model=PodcastResponse, status_code=201)
@@ -185,27 +184,6 @@ async def generate_podcast(
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while generating the podcast: {str(e)}"
-        )
-
-@app.post("/process-updates", status_code=202)
-async def process_updates():
-    """
-    Manually trigger processing of recent data updates.
-    This endpoint can be called to process data without waiting for Redis notifications.
-    """
-    try:
-        if not SHOULD_PROCESS_UPDATES:
-            return {
-                "status": "skipped", 
-                "message": f"Environment {ENVIRONMENT} is not configured to process updates"
-            }
-            
-        logger.info(f"[{ENVIRONMENT}] Manual update processing triggered")
-        return {"status": "processing", "message": "Update processing initiated"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process updates: {str(e)}"
         )
 
 if __name__ == "__main__":
