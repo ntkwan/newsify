@@ -103,11 +103,7 @@ class ArticleService:
             
             result = db.execute(query).fetchall()
             print(f"Query result count: {len(result)}")
-            
-            if not result:
-                print("No articles found in database, falling back to file")
-                return await self._filter_articles_from_file(start_date, end_date)
-            
+
             articles = []
             for row in result:
                 row_dict = {}
@@ -121,6 +117,7 @@ class ArticleService:
                     src=row_dict.get("src", ""),
                     language=row_dict.get("language"),
                     categories=row_dict.get("categories", []),
+                    main_category=row_dict.get("main_category"),
                     title=row_dict.get("title", ""),
                     content=row_dict.get("content", ""),
                     image_url=row_dict.get("image_url"),
@@ -129,11 +126,75 @@ class ArticleService:
                 )
                 articles.append(article)
             
+            # Select unique articles by category if we have more than 5
+            if len(articles) > 5:
+                articles = self.select_diverse_articles(articles, 5)
+                print(f"Selected 5 diverse articles from different categories")
+            
             print(f"Found {len(articles)} articles in date range from database")
             return articles
             
         except Exception as e:
-            print(f"Error querying database: {str(e)}, falling back to file")
-            return await self._filter_articles_from_file(start_date, end_date)
+            print(f"Error querying database: {str(e)}")
+            raise e
+    
+    def select_diverse_articles(self, articles: List[Article], count: int = 5) -> List[Article]:
+        """
+        Select a diverse set of articles from different categories.
+        
+        Args:
+            articles: List of all available articles
+            count: Number of articles to select (default 5)
+            
+        Returns:
+            List of selected articles from diverse categories
+        """
+        if len(articles) <= count:
+            return articles
+            
+        # Group articles by main category
+        category_map = {}
+        for article in articles:
+            main_category = getattr(article, 'main_category', None) or "Uncategorized"
+            if main_category not in category_map:
+                category_map[main_category] = []
+            category_map[main_category].append(article)
+        
+        # Sort categories by the number of articles (most popular first)
+        sorted_categories = sorted(category_map.keys(), key=lambda k: len(category_map[k]), reverse=True)
+        
+        # Select one article from each of the top categories
+        selected_articles = []
+        for category in sorted_categories:
+            if len(selected_articles) < count:
+                # Take the most recent article from this category
+                category_articles = sorted(
+                    category_map[category],
+                    key=lambda a: getattr(a, 'publish_date', ''),
+                    reverse=True
+                )
+                selected_articles.append(category_articles[0])
+            else:
+                break
+        
+        # If we don't have enough categories, add more articles from the most popular categories
+        while len(selected_articles) < count and sorted_categories:
+            for category in sorted_categories:
+                if len(selected_articles) < count and len(category_map[category]) > 1:
+                    # Take the second most recent article from this category
+                    category_articles = sorted(
+                        category_map[category],
+                        key=lambda a: getattr(a, 'publish_date', ''),
+                        reverse=True
+                    )
+                    if len(category_articles) > 1:
+                        selected_articles.append(category_articles[1])
+                        # Remove the article we just added
+                        category_map[category] = category_articles[2:]
+                
+                if len(selected_articles) >= count:
+                    break
+        
+        return selected_articles
 
 article_service = ArticleService()

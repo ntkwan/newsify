@@ -123,11 +123,10 @@ async def startup_event():
     """Initialize services when the application starts."""
     redis_service.register_handler(DATA_UPDATES_CHANNEL, handle_data_update)
     
-    # Always register the handler, but we'll check SHOULD_PROCESS_UPDATES inside the handler
     if not redis_service.start():
         logger.warning(f"[{ENVIRONMENT}] Failed to start Redis service. Data update notifications will not work.")
     else:
-        if SHOULD_PROCESS_UPDATES:
+        if ENVIRONMENT.lower() == "dev":
             logger.info(f"[{ENVIRONMENT}] Redis service started and ready to process updates")
         else:
             logger.info(f"[{ENVIRONMENT}] Redis service started, but this environment will not process updates")
