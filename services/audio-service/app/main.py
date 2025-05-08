@@ -5,7 +5,6 @@ import json
 import logging
 from typing import Dict, Any
 from sqlalchemy.orm import Session
-from dotenv import load_dotenv
 import random
 from datetime import timedelta
 import asyncio
@@ -17,8 +16,6 @@ from .services.database import get_digitalocean_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("app.main")
-
-load_dotenv()
 
 app = FastAPI(
     title="Audio Service API",
@@ -45,14 +42,14 @@ def handle_data_update(message: Dict[str, Any]) -> None:
     """
     try:
         data = message.get('data', '{}')
-        logger.info(f"Received data update notification: {data}")
         
         try:
             data_dict = json.loads(data)
             update_type = data_dict.get('update_type')
             update_time = data_dict.get('timestamp')
-            
+
             logger.info(f"Processing data update: type={update_type}, time={update_time}")
+            
             
             if update_type == 'general' and 'details' in data_dict:
                 details = data_dict.get('details', {})
@@ -75,19 +72,34 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                     
                     logger.info(f"Selected time window: {time_window}")
                     
-                    db = next(get_digitalocean_db())
+                    lock_key = f"podcast_lock:{date_str}:{selected_hour}"
+                    lock_expiry = 3600  # 1 hour in seconds
                     
-                    try:
-                        logger.info(f"Generating podcast for time window: {time_window['start']} to {time_window['end']}")
-                        podcast_result = asyncio.run(podcast_service.generate_podcast(
-                            time_window["start"],
-                            time_window["end"],
-                            db
-                        ))
-                        logger.info(f"Successfully generated podcast for time window: {selected_hour}h on {date_str}")
-                        logger.info(f"Podcast URL: {podcast_result.get('url', 'N/A')}")
-                    except Exception as podcast_error:
-                        logger.error(f"Failed to generate podcast: {str(podcast_error)}")
+                    if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
+                        logger.info(f"Acquired lock for time window: {lock_key}")
+                        
+                        db = next(get_digitalocean_db())
+                        
+                        try:
+                            logger.info(f"Generating podcast for time window: {time_window['start']} to {time_window['end']}")
+                            podcast_result = asyncio.run(podcast_service.generate_podcast(
+                                time_window["start"],
+                                time_window["end"],
+                                db
+                            ))
+                            logger.info(f"Successfully generated podcast for time window: {selected_hour}h on {date_str}")
+                            logger.info(f"Podcast URL: {podcast_result.get('url', 'N/A')}")
+                            
+                            completion_key = f"podcast_completed:{date_str}:{selected_hour}"
+                            redis_service.client.set(completion_key, "1", ex=2 * 3600)  # Keep for 2 hours
+                        except Exception as podcast_error:
+                            logger.error(f"Failed to generate podcast: {str(podcast_error)}")
+                            redis_service.client.delete(lock_key)
+                    else:
+                        logger.info(f"Lock acquisition failed for {lock_key}, podcast generation already in progress or completed by another instance")
+                        completion_key = f"podcast_completed:{date_str}:{selected_hour}"
+                        if redis_service.client and redis_service.client.exists(completion_key):
+                            logger.info(f"Podcast for {date_str} hour {selected_hour} has already been generated")
                 
         except json.JSONDecodeError:
             logger.warning(f"Received invalid JSON in data update: {data}")
