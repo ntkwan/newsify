@@ -1,6 +1,6 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Param } from '@nestjs/common';
 import { ArticlesService } from './articles.service';
-import { ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { DateRangePaginationDto } from './dtos/time-range.dto';
 import { PaginationDto } from './dtos/pagination.dto';
 import { PaginatedArticlesResponseDto } from './dtos/paginated-articles-response.dto';
@@ -8,6 +8,7 @@ import { CategoryPaginationDto } from './dtos/category-pagination.dto';
 import { TrendingPaginationDto } from './dtos/trending-pagination.dto';
 import { SearchService } from '../search/search.service';
 import { SearchResponseDto } from '../search/dtos/search-response.dto';
+import { ArticleResponseDto } from './dtos/article-response.dto';
 
 @Controller('articles')
 export class ArticlesController {
@@ -93,6 +94,28 @@ export class ArticlesController {
             query.pageSize,
             query.minScore || 0,
         );
+    }
+
+    @ApiOperation({
+        summary: 'Get article by ID with auto-generated summary if needed',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Returns a single article by ID',
+        type: ArticleResponseDto,
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Article not found',
+    })
+    @ApiParam({
+        name: 'id',
+        description: 'Article ID (trending_id)',
+        type: String,
+    })
+    @Get(':id')
+    async getArticleById(@Param('id') id: string): Promise<ArticleResponseDto> {
+        return this.articlesService.getArticleById(id);
     }
 
     @ApiOperation({
