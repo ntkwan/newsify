@@ -3,7 +3,7 @@ services:
   backend:
     containerName: newsify-backend
     image: nkwn/newsify-backend
-    tag: "dev-5dd93df"
+    tag: "dev-fa680e3"
     port: 8080
     ingress:
       enabled: true
