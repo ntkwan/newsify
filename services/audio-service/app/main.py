@@ -67,24 +67,49 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                 details = data_dict.get('details', {})
                 available_hours = details.get('hours', [])
                 date_str = details.get('date')
+                time_range = data_dict.get('time_range', {})
                 
-                if available_hours and date_str:
-                    selected_hour = random.choice(available_hours)
+                if available_hours and date_str and time_range:
+                    time_from = time_range.get('from', '')  # Format: "17h 07/05"
+                    time_to = time_range.get('to', '')      # Format: "23h 07/05"
                     
-                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-                    start_time = date_obj.replace(hour=selected_hour, minute=0, second=0)
-                    end_time = start_time + timedelta(hours=1)
+                    logger.info(f"[{ENVIRONMENT}] Using time range from: {time_from} to: {time_to}")
                     
-                    time_window = {
-                        "start": start_time.isoformat(),
-                        "end": end_time.isoformat(),
-                        "hour": selected_hour,
-                        "date": date_str
-                    }
+                    try:
+                        hour_part = int(time_from.split('h')[0].strip())
+                        date_part = time_from.split('h')[1].strip()
+                        
+                        day, month = date_part.split('/')
+                        
+                        current_year = datetime.now().year
+                        full_date_str = f"{current_year}-{month.zfill(2)}-{day.zfill(2)}"
+                        
+                        date_obj = datetime.strptime(full_date_str, "%Y-%m-%d")
+                        start_time = date_obj.replace(hour=hour_part, minute=0, second=0)
+                        
+                        hour_to_part = int(time_to.split('h')[0].strip())
+                        date_to_part = time_to.split('h')[1].strip()
+                        day_to, month_to = date_to_part.split('/')
+                        full_date_to_str = f"{current_year}-{month_to.zfill(2)}-{day_to.zfill(2)}"
+                        date_to_obj = datetime.strptime(full_date_to_str, "%Y-%m-%d")
+                        end_time = date_to_obj.replace(hour=hour_to_part, minute=59, second=59)
+                        
+                        if not start_time or not end_time:
+                            raise ValueError("Failed to parse time_range")
+                        
+                        time_window = {
+                            "start": start_time.isoformat(),
+                            "end": end_time.isoformat(),
+                            "from": time_from,
+                            "to": time_to
+                        }
+                        
+                        logger.info(f"[{ENVIRONMENT}] Using time window from time_range: {time_window}")
+                    except Exception as time_parse_error:
+                        logger.warning(f"[{ENVIRONMENT}] Failed to parse time_range: {str(time_parse_error)}")
+                        raise time_parse_error
                     
-                    logger.info(f"[{ENVIRONMENT}] Selected time window: {time_window}")
-                    
-                    lock_key = f"podcast_lock:{ENVIRONMENT}:{date_str}:{selected_hour}"
+                    lock_key = f"podcast_lock:{ENVIRONMENT}:{date_str}:{time_range.get('from', 'all')}"
                     lock_expiry = 3600  # 1 hour in seconds
                     
                     if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
@@ -99,19 +124,19 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                                 time_window["end"],
                                 db
                             ))
-                            logger.info(f"[{ENVIRONMENT}] Successfully generated podcast for time window: {selected_hour}h on {date_str}")
+                            logger.info(f"[{ENVIRONMENT}] Successfully generated podcast for time range {time_from} to {time_to}")
                             logger.info(f"[{ENVIRONMENT}] Podcast URL: {podcast_result.get('url', 'N/A')}")
                             
-                            completion_key = f"podcast_completed:{ENVIRONMENT}:{date_str}:{selected_hour}"
+                            completion_key = f"podcast_completed:{ENVIRONMENT}:{date_str}:{time_range.get('from', 'all')}"
                             redis_service.client.set(completion_key, "1", ex=2 * 3600)  # Keep for 2 hours
                         except Exception as podcast_error:
                             logger.error(f"[{ENVIRONMENT}] Failed to generate podcast: {str(podcast_error)}")
                             redis_service.client.delete(lock_key)
                     else:
                         logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, podcast generation already in progress or completed by another instance")
-                        completion_key = f"podcast_completed:{ENVIRONMENT}:{date_str}:{selected_hour}"
+                        completion_key = f"podcast_completed:{ENVIRONMENT}:{date_str}:{time_range.get('from', 'all')}"
                         if redis_service.client and redis_service.client.exists(completion_key):
-                            logger.info(f"[{ENVIRONMENT}] Podcast for {date_str} hour {selected_hour} has already been generated")
+                            logger.info(f"[{ENVIRONMENT}] Podcast for time range {time_from} to {time_to} has already been generated")
                 
         except json.JSONDecodeError:
             logger.warning(f"[{ENVIRONMENT}] Received invalid JSON in data update: {data}")
@@ -123,11 +148,10 @@ async def startup_event():
     """Initialize services when the application starts."""
     redis_service.register_handler(DATA_UPDATES_CHANNEL, handle_data_update)
     
-    # Always register the handler, but we'll check SHOULD_PROCESS_UPDATES inside the handler
     if not redis_service.start():
         logger.warning(f"[{ENVIRONMENT}] Failed to start Redis service. Data update notifications will not work.")
     else:
-        if SHOULD_PROCESS_UPDATES:
+        if ENVIRONMENT.lower() == "dev":
             logger.info(f"[{ENVIRONMENT}] Redis service started and ready to process updates")
         else:
             logger.info(f"[{ENVIRONMENT}] Redis service started, but this environment will not process updates")
