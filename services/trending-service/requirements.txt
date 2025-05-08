@@ -13,4 +13,4 @@ sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 tqdm==4.66.1
 redis==5.0.1 
-elasticsearch>=8.0.0
+elasticsearch==7.17.0

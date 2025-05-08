@@ -3,20 +3,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Dict, Any
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
+import random
+from datetime import timedelta
+import asyncio
+import os
 
-from .models import PodcastResponse, Article
+from .models import PodcastResponse
 from .services.podcast_service import podcast_service
-from .services.article_service import article_service
 from .services.redis_service import redis_service
-from .services.database import get_supabase_db, get_digitalocean_db
+from .services.database import get_digitalocean_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("app.main")
 
 load_dotenv()
+
+ENVIRONMENT = os.getenv("ENV", "unknown")
+
+logger.info(f"Starting audio service in {ENVIRONMENT} environment")
 
 app = FastAPI(
     title="Audio Service API",
@@ -43,19 +50,98 @@ def handle_data_update(message: Dict[str, Any]) -> None:
     """
     try:
         data = message.get('data', '{}')
-        logger.info(f"Received data update notification: {data}")
+        logger.info(f"[{ENVIRONMENT}] Received data update notification: {data}")
+        
+        if ENVIRONMENT.lower() != "dev":
+            logger.info(f"[{ENVIRONMENT}] Skipping update processing - this environment is not configured to process updates")
+            return
         
         try:
             data_dict = json.loads(data)
             update_type = data_dict.get('update_type')
             update_time = data_dict.get('timestamp')
+
+            logger.info(f"[{ENVIRONMENT}] Processing data update: type={update_type}, time={update_time}")
             
-            logger.info(f"Processing data update: type={update_type}, time={update_time}")
+            if update_type == 'general' and 'details' in data_dict:
+                details = data_dict.get('details', {})
+                available_hours = details.get('hours', [])
+                date_str = details.get('date')
+                time_range = data_dict.get('time_range', {})
+                
+                if available_hours and date_str and time_range:
+                    time_from = time_range.get('from', '')  # Format: "17h 07/05"
+                    time_to = time_range.get('to', '')      # Format: "23h 07/05"
+                    
+                    logger.info(f"[{ENVIRONMENT}] Using time range from: {time_from} to: {time_to}")
+                    
+                    try:
+                        hour_part = int(time_from.split('h')[0].strip())
+                        date_part = time_from.split('h')[1].strip()
+                        
+                        day, month = date_part.split('/')
+                        
+                        current_year = datetime.now().year
+                        full_date_str = f"{current_year}-{month.zfill(2)}-{day.zfill(2)}"
+                        
+                        date_obj = datetime.strptime(full_date_str, "%Y-%m-%d")
+                        start_time = date_obj.replace(hour=hour_part, minute=0, second=0)
+                        
+                        hour_to_part = int(time_to.split('h')[0].strip())
+                        date_to_part = time_to.split('h')[1].strip()
+                        day_to, month_to = date_to_part.split('/')
+                        full_date_to_str = f"{current_year}-{month_to.zfill(2)}-{day_to.zfill(2)}"
+                        date_to_obj = datetime.strptime(full_date_to_str, "%Y-%m-%d")
+                        end_time = date_to_obj.replace(hour=hour_to_part, minute=59, second=59)
+                        
+                        if not start_time or not end_time:
+                            raise ValueError("Failed to parse time_range")
+                        
+                        time_window = {
+                            "start": start_time.isoformat(),
+                            "end": end_time.isoformat(),
+                            "from": time_from,
+                            "to": time_to
+                        }
+                        
+                        logger.info(f"[{ENVIRONMENT}] Using time window from time_range: {time_window}")
+                    except Exception as time_parse_error:
+                        logger.warning(f"[{ENVIRONMENT}] Failed to parse time_range: {str(time_parse_error)}")
+                        raise time_parse_error
+                    
+                    lock_key = f"podcast_lock:{ENVIRONMENT}:{date_str}:{time_range.get('from', 'all')}"
+                    lock_expiry = 3600  # 1 hour in seconds
+                    
+                    if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
+                        logger.info(f"[{ENVIRONMENT}] Acquired lock for time window: {lock_key}")
+                        
+                        db = next(get_digitalocean_db())
+                        
+                        try:
+                            logger.info(f"[{ENVIRONMENT}] Generating podcast for time window: {time_window['start']} to {time_window['end']}")
+                            podcast_result = asyncio.run(podcast_service.generate_podcast(
+                                time_window["start"],
+                                time_window["end"],
+                                db
+                            ))
+                            logger.info(f"[{ENVIRONMENT}] Successfully generated podcast for time range {time_from} to {time_to}")
+                            logger.info(f"[{ENVIRONMENT}] Podcast URL: {podcast_result.get('url', 'N/A')}")
+                            
+                            completion_key = f"podcast_completed:{ENVIRONMENT}:{date_str}:{time_range.get('from', 'all')}"
+                            redis_service.client.set(completion_key, "1", ex=2 * 3600)  # Keep for 2 hours
+                        except Exception as podcast_error:
+                            logger.error(f"[{ENVIRONMENT}] Failed to generate podcast: {str(podcast_error)}")
+                            redis_service.client.delete(lock_key)
+                    else:
+                        logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, podcast generation already in progress or completed by another instance")
+                        completion_key = f"podcast_completed:{ENVIRONMENT}:{date_str}:{time_range.get('from', 'all')}"
+                        if redis_service.client and redis_service.client.exists(completion_key):
+                            logger.info(f"[{ENVIRONMENT}] Podcast for time range {time_from} to {time_to} has already been generated")
                 
         except json.JSONDecodeError:
-            logger.warning(f"Received invalid JSON in data update: {data}")
+            logger.warning(f"[{ENVIRONMENT}] Received invalid JSON in data update: {data}")
     except Exception as e:
-        logger.error(f"Error handling data update: {str(e)}")
+        logger.error(f"[{ENVIRONMENT}] Error handling data update: {str(e)}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -63,7 +149,12 @@ async def startup_event():
     redis_service.register_handler(DATA_UPDATES_CHANNEL, handle_data_update)
     
     if not redis_service.start():
-        logger.warning("Failed to start Redis service. Data update notifications will not work.")
+        logger.warning(f"[{ENVIRONMENT}] Failed to start Redis service. Data update notifications will not work.")
+    else:
+        if ENVIRONMENT.lower() == "dev":
+            logger.info(f"[{ENVIRONMENT}] Redis service started and ready to process updates")
+        else:
+            logger.info(f"[{ENVIRONMENT}] Redis service started, but this environment will not process updates")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -72,7 +163,12 @@ async def shutdown_event():
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "audio-service"}
+    return {
+        "status": "ok", 
+        "service": "audio-service", 
+        "environment": ENVIRONMENT,
+        "processing_updates": ENVIRONMENT.lower() == "dev"
+    }
         
 @app.post("/podcast", response_model=PodcastResponse, status_code=201)
 async def generate_podcast(
@@ -112,21 +208,6 @@ async def generate_podcast(
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while generating the podcast: {str(e)}"
-        )
-
-@app.post("/process-updates", status_code=202)
-async def process_updates():
-    """
-    Manually trigger processing of recent data updates.
-    This endpoint can be called to process data without waiting for Redis notifications.
-    """
-    try:
-        logger.info("Manual update processing triggered")
-        return {"status": "processing", "message": "Update processing initiated"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process updates: {str(e)}"
         )
 
 if __name__ == "__main__":

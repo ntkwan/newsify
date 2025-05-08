@@ -84,6 +84,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-trending-service:${{ steps.determine_tag.outputs.tag }}
           build-args: |
+            ENV=${{ steps.determine_tag.outputs.env }}
             SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}
             DB_NAME=${{ secrets.DB_NAME }}
             DB_PORT=${{ secrets.DB_PORT }}

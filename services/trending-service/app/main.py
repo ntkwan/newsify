@@ -11,13 +11,23 @@ from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from app.services.trending_service import TrendingService
-from uuid import UUID
 import uvicorn
 import json
 import logging
+import asyncio
 from app.services.redis_service import redis_service
 
 load_dotenv()
+
+ENVIRONMENT = os.getenv("ENV", "unknown")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("app.main")
+
+logger.info(f"Starting trending service in {ENVIRONMENT} environment")
 
 app = FastAPI(
     title="Trending News API",
@@ -34,9 +44,6 @@ app.add_middleware(
 )
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("app.main")
 
 class TrendingKeyword(BaseModel):
     query: str
@@ -180,7 +187,12 @@ def analyze_article_trending(article_content: str, trends_data: List[Dict[str, A
 
 @app.get("/")
 async def root():
-    return {"message": "ok"}
+    return {
+        "message": "ok",
+        "service": "trending-service", 
+        "environment": ENVIRONMENT,
+        "processing_updates": ENVIRONMENT.lower() == "dev"
+    }
 
 @app.get("/trending", response_model=List[str])
 async def get_trending(country: str = Query("US", description="Country code for trending data")):
@@ -193,133 +205,27 @@ async def get_trending_related(country: str = Query("US", description="Country c
     keywords = get_trending_keywords(country_code=country)
     return get_related_queries(keywords)
 
-@app.post("/analyze", response_model=TrendingArticle)
-async def analyze_article(article: ArticleAnalysisRequest):
-    """Analyze a single article for trending relevance and save results to database"""
-    trends_data = get_related_queries(get_trending_keywords())
-    
-    analysis = analyze_article_trending(article.content, trends_data)
-    
-    summary = None
-    publish_date = None
-    if article.publish_date:
-        try:
-            publish_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
-        except (ValueError, TypeError):
-            print(f"Invalid publish_date format: {article.publish_date}")
-    
-    result = {
-        "url": article.url or "",
-        "title": article.title or "",
-        "content": article.content,
-        "trend": analysis["trend"],
-        "summary": summary,
-        "similarity_score": analysis["similarity_score"],
-        "article_id": article.article_id,
-        "publish_date": article.publish_date,
-        "analyzed_date": datetime.now().isoformat()
-    }
-    
-    if article.article_id:
-        trending_service = TrendingService()
-        await trending_service.save_trending_analysis(
-            article_id=article.article_id,
-            url=article.url or "",
-            title=article.title or "",
-            trend=analysis["trend"],
-            summary=summary,
-            similarity_score=analysis["similarity_score"],
-            publish_date=publish_date,
-            categories=[],  # Default empty array for categories
-            main_category="General",  # Default main category
-            image_url=None,  # Default image URL
-            content=article.content  # Article content
-        )
-    
-    return result
-
-@app.post("/analyze/batch", response_model=List[TrendingArticle])
-async def analyze_articles_batch(request: ArticleBatchRequest):
-    """Analyze multiple articles for trending relevance and save results to database"""
-    if not request.articles:
-        return []
-    
-    trends_data = get_related_queries(get_trending_keywords())
-    trending_service = TrendingService()
-    
-    results = []
-    for article in request.articles:
-        analysis = analyze_article_trending(article.content, trends_data)
-        
-        summary = None
-        publish_date = None
-        if article.publish_date:
-            try:
-                publish_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
-            except (ValueError, TypeError):
-                print(f"Invalid publish_date format: {article.publish_date}")
-        
-        result = {
-            "url": article.url or "",
-            "title": article.title or "",
-            "content": article.content,
-            "trend": analysis["trend"],
-            "summary": summary,
-            "similarity_score": analysis["similarity_score"],
-            "article_id": article.article_id,
-            "publish_date": article.publish_date,
-            "analyzed_date": datetime.now().isoformat()
-        }
-        
-        if article.article_id:
-            await trending_service.save_trending_analysis(
-                article_id=article.article_id,
-                url=article.url or "",
-                title=article.title or "",
-                trend=analysis["trend"],
-                summary=summary,
-                similarity_score=analysis["similarity_score"],
-                publish_date=publish_date,
-                categories=[],  # Default empty array for categories
-                main_category="General",  # Default main category
-                image_url=None,  # Default image URL
-                content=article.content  # Article content
-            )
-        
-        results.append(result)
-    
-    return results
-
-@app.post("/analyze/latest", response_model=List[TrendingArticle])
+@app.post("/analyze", response_model=List[TrendingArticle])
 async def analyze_latest_articles(
-    hours: int = Query(24, description="Hours of recent articles to analyze"),
-    limit: int = Query(20, description="Maximum number of articles to analyze"),
-    from_time: Optional[str] = Query(None, description="Optional custom start time in ISO format (YYYY-MM-DDTHH:MM:SS)")
+    startTime: Optional[str] = Query(None, description="Start time in ISO format (YYYY-MM-DDTHH:MM:SS)"),
+    endTime: Optional[str] = Query(None, description="End time in ISO format (YYYY-MM-DDTHH:MM:SS)")
 ):
-    """
-    Analyze the latest articles from the processed database and save trending results
-    
-    This endpoint:
-    1. Fetches the most recent articles from Supabase within the specified time window
-    2. Analyzes them against current trending topics
-    3. Saves the results to the Digital Ocean database
-    """
     try:
         trending_service = TrendingService()
         
-        if from_time:
-            try:
-                start_time = datetime.fromisoformat(from_time)
-                print(f"Using custom start time: {start_time}")
-                articles = await trending_service.get_articles_from_time(start_time=start_time, limit=limit)
-            except ValueError as e:
-                error_msg = f"Invalid from_time format: {e}"
-                print(error_msg)
-                raise HTTPException(status_code=400, detail=error_msg)
-        else:
-            print(f"Using hours parameter: {hours} hours ago")
-            articles = await trending_service.get_recent_articles_by_time(hours=hours, limit=limit)
-        
+        try:
+            start_datetime = datetime.fromisoformat(startTime.replace('Z', '+00:00'))
+            end_datetime = datetime.fromisoformat(endTime.replace('Z', '+00:00'))
+            print(f"Using startTime and endTime: {start_datetime} to {end_datetime}")
+            articles = await trending_service.get_articles_between_times(
+                start_time=start_datetime,
+                end_time=end_datetime
+            )
+        except ValueError as e:
+            error_msg = f"Invalid datetime format: {e}"
+            print(error_msg)
+            raise HTTPException(status_code=400, detail=error_msg)
+    
         print(f"Found {len(articles)} articles to analyze")
         
         if not articles:
@@ -342,7 +248,10 @@ async def analyze_latest_articles(
                     "similarity_score": 0.0,
                     "article_id": article["id"],
                     "publish_date": article["publish_date"],
-                    "analyzed_date": datetime.now().isoformat()
+                    "analyzed_date": datetime.now().isoformat(),
+                    "image_url": article.get("image_url"),
+                    "categories": article.get("categories", []),
+                    "main_category": article.get("main_category", "General")
                 } for article in articles
             ]
         
@@ -446,20 +355,89 @@ def handle_data_update(message: Dict[str, Any]) -> None:
     """
     try:
         data = message.get('data', '{}')
-        logger.info(f"Received data update notification: {data}")
+        logger.info(f"[{ENVIRONMENT}] Received data update notification: {data}")
+        
+        if ENVIRONMENT.lower() != "dev":
+            logger.info(f"[{ENVIRONMENT}] Skipping update processing - this environment is not configured to process updates")
+            return
         
         try:
             data_dict = json.loads(data)
             update_type = data_dict.get('update_type')
             update_time = data_dict.get('timestamp')
             
-            logger.info(f"Processing data update: type={update_type}, time={update_time}")
+            logger.info(f"[{ENVIRONMENT}] Processing data update: type={update_type}, time={update_time}")
             
-            
+            if update_type == 'general' and 'details' in data_dict:
+                details = data_dict.get('details', {})
+                available_hours = details.get('hours', [])
+                date_str = details.get('date')
+                time_range = data_dict.get('time_range', {})
+                
+                if available_hours and date_str and time_range:
+                    time_from = time_range.get('from', '')  # Format: "17h 07/05"
+                    time_to = time_range.get('to', '')      # Format: "23h 07/05"
+                    
+                    logger.info(f"[{ENVIRONMENT}] Using time range from: {time_from} to: {time_to}")
+                    
+                    try:
+                        # Parse the time_from string to get start time
+                        hour_from_part = int(time_from.split('h')[0].strip())
+                        date_from_part = time_from.split('h')[1].strip()
+                        day_from, month_from = date_from_part.split('/')
+                        
+                        # Create full date string with current year
+                        current_year = datetime.now().year
+                        from_date_str = f"{current_year}-{month_from.zfill(2)}-{day_from.zfill(2)}"
+                        
+                        # Create start_time datetime
+                        from_date_obj = datetime.strptime(from_date_str, "%Y-%m-%d")
+                        start_time = from_date_obj.replace(hour=hour_from_part, minute=0, second=0)
+                        
+                        # Parse the time_to string to get end time
+                        hour_to_part = int(time_to.split('h')[0].strip())
+                        date_to_part = time_to.split('h')[1].strip()
+                        day_to, month_to = date_to_part.split('/')
+                        to_date_str = f"{current_year}-{month_to.zfill(2)}-{day_to.zfill(2)}"
+                        to_date_obj = datetime.strptime(to_date_str, "%Y-%m-%d")
+                        end_time = to_date_obj.replace(hour=hour_to_part, minute=59, second=59)
+                        
+                        logger.info(f"[{ENVIRONMENT}] Parsed time range: {start_time.isoformat()} to {end_time.isoformat()}")
+                        
+                        # Create a unique lock key for this time range
+                        lock_key = f"trending_lock:{ENVIRONMENT}:{time_from}-{time_to}"
+                        lock_expiry = 3600  # 1 hour in seconds
+                        
+                        if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
+                            logger.info(f"[{ENVIRONMENT}] Acquired lock for time range: {lock_key}")
+                            
+                            try:
+                                results = asyncio.run(analyze_latest_articles(
+                                        startTime=start_time.isoformat(),
+                                        endTime=end_time.isoformat()
+                                ))
+                                    
+                                logger.info(f"[{ENVIRONMENT}] Successfully analyzed and saved {len(results)} articles for time range {time_from} to {time_to}")
+                                    
+                                completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
+                                redis_service.client.set(completion_key, "1", ex=86400)  # Keep for 24 hours
+                            except Exception as processing_error:
+                                logger.error(f"[{ENVIRONMENT}] Failed to process articles: {str(processing_error)}")
+                                redis_service.client.delete(lock_key)
+                        else:
+                            logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, trending analysis already in progress or completed by another instance")
+                            
+                            completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
+                            if redis_service.client and redis_service.client.exists(completion_key):
+                                logger.info(f"[{ENVIRONMENT}] Trending analysis for time range {time_from} to {time_to} has already been completed")
+                    
+                    except Exception as parse_error:
+                        logger.error(f"[{ENVIRONMENT}] Error parsing time range: {str(parse_error)}")
+                
         except json.JSONDecodeError:
-            logger.warning(f"Received invalid JSON in data update: {data}")
+            logger.warning(f"[{ENVIRONMENT}] Received invalid JSON in data update: {data}")
     except Exception as e:
-        logger.error(f"Error handling data update: {str(e)}")
+        logger.error(f"[{ENVIRONMENT}] Error handling data update: {str(e)}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -467,27 +445,17 @@ async def startup_event():
     redis_service.register_handler(DATA_UPDATES_CHANNEL, handle_data_update)
     
     if not redis_service.start():
-        logger.warning("Failed to start Redis service. Data update notifications will not work.")
+        logger.warning(f"[{ENVIRONMENT}] Failed to start Redis service. Data update notifications will not work.")
+    else:
+        if ENVIRONMENT.lower() == "dev":
+            logger.info(f"[{ENVIRONMENT}] Redis service started and ready to process updates")
+        else:
+            logger.info(f"[{ENVIRONMENT}] Redis service started, but this environment will not process updates")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources when the application shuts down."""
     redis_service.stop()
-
-@app.post("/process-updates", status_code=202)
-async def process_updates():
-    """
-    Manually trigger processing of recent data updates.
-    This endpoint can be called to process data without waiting for Redis notifications.
-    """
-    try:
-        logger.info("Manual update processing triggered")
-        return {"status": "processing", "message": "Update processing initiated"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process updates: {str(e)}"
-        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
