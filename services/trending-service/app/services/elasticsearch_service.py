@@ -12,79 +12,23 @@ class ElasticsearchService:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
         self.es_host = os.getenv("ELS_IP")
         self.es_user = os.getenv("ELS_USERNAME")
         self.es_password = os.getenv("ELS_PASSWORD")
         self.index_name = "title"
         
         self.client = Elasticsearch(
-            self.es_host,
-            basic_auth=(self.es_user, self.es_password),
-            verify_certs=False,  
+            [f'{self.es_host}/'],  # URL as string in a list
+            http_auth=(self.es_user, self.es_password),
+            verify_certs=False
         )
+
+        info = self.client.info()
+        self.logger.info(f"Cluster info: {info}")
         
-        self._ensure_index_exists()
-    
-    def _ensure_index_exists(self) -> None:
-        """Create index if it doesn't exist"""
-        try:
-            if not self.client.indices.exists(index=self.index_name):
-                self.client.indices.create(
-                    index=self.index_name,
-                    body={
-                        "settings": {
-                            "analysis": {
-                                "analyzer": {
-                                    "title_analyzer": {
-                                        "type": "custom",
-                                        "tokenizer": "standard",
-                                        "filter": [
-                                            "lowercase",
-                                            "english_stop",
-                                            "english_stemmer",
-                                        ],
-                                    },
-                                },
-                                "filter": {
-                                    "english_stop": {
-                                        "type": "stop",
-                                        "stopwords": "_english_",
-                                    },
-                                    "english_stemmer": {
-                                        "type": "stemmer",
-                                        "language": "english",
-                                    },
-                                },
-                            },
-                        },
-                        "mappings": {
-                            "properties": {
-                                "trendingId": {"type": "keyword"},
-                                "articleId": {"type": "keyword"},
-                                "title": {
-                                    "type": "text",
-                                    "analyzer": "title_analyzer",
-                                    "fields": {
-                                        "keyword": {"type": "keyword"},
-                                    },
-                                },
-                                "content": {"type": "text", "analyzer": "standard"},
-                                "summary": {"type": "text", "analyzer": "standard"},
-                                "mainCategory": {"type": "keyword"},
-                                "categories": {"type": "keyword"},
-                                "publishDate": {"type": "date"},
-                                "url": {"type": "keyword"},
-                                "imageUrl": {"type": "keyword"},
-                                "similarityScore": {"type": "float"},
-                            }
-                        }
-                    }
-                )
-                self.logger.info(f"Created Elasticsearch index '{self.index_name}'")
-        except Exception as e:
-            self.logger.error(f"Error creating Elasticsearch index: {str(e)}")
-    
+        ping_result = self.client.ping()
+        self.logger.info(f"Ping result: {ping_result}")
+        
     async def index_trending_article(self, trending_id: str, article_data: Dict[str, Any]) -> bool:
         """
         Index a trending article in Elasticsearch

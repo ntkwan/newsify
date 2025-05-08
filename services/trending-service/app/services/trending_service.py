@@ -60,6 +60,7 @@ class TrendingService:
             
             await self.es_service.index_trending_article(trending_id, article_data)
         
+        print(f"Saved trending article to database: ID={trending_id}, article_id={article_id}")
         return trending_id
             
     def _get_supabase_session(self) -> Optional[Session]:
@@ -93,163 +94,22 @@ class TrendingService:
         except Exception as e:
             print(f"Error ensuring table exists: {str(e)}")
             return False
-    
-    async def get_articles_from_supabase(self, limit: int = 10) -> List[Dict]:
+        
+    async def get_articles_between_times(self, start_time: datetime, end_time: datetime) -> List[Dict]:
         """
-        Fetch recent articles from Supabase.
+        Fetch articles from Supabase published between two specific datetimes.
         
         Args:
-            limit: Maximum number of articles to fetch
+            start_time: Start time to fetch articles from (inclusive)
+            end_time: End time to fetch articles to (inclusive)
             
         Returns:
             List of article dictionaries
         """
         try:
             with self._get_supabase_session() as session:
-                query = select(
-                    articles_table.c.id,
-                    articles_table.c.url,
-                    articles_table.c.title,
-                    articles_table.c.content,
-                    articles_table.c.publish_date
-                ).order_by(
-                    articles_table.c.publish_date.desc()
-                ).limit(limit)
+                print(f"Fetching articles between {start_time.isoformat()} and {end_time.isoformat()}")
                 
-                result = session.execute(query)
-                
-                articles = []
-                for row in result:
-                    articles.append({
-                        "id": str(row.id),
-                        "url": row.url,
-                        "title": row.title,
-                        "content": row.content,
-                        "publish_date": row.publish_date.isoformat() if row.publish_date else None
-                    })
-                
-                return articles
-        except Exception as e:
-            print(f"Error fetching articles from Supabase: {str(e)}")
-            return []
-    
-    async def save_trending_analysis(self, article_id: str, url: str, title: str, 
-                                     trend: Optional[str], similarity_score: float, 
-                                     publish_date: Optional[datetime] = None,
-                                     summary: Optional[str] = None,
-                                     image_url: Optional[str] = None,
-                                     categories: Optional[list] = None,
-                                     main_category: Optional[str] = None,
-                                     content: Optional[str] = None) -> bool:
-        """
-        Save trending analysis results to Digital Ocean database.
-        
-        Args:
-            article_id: UUID of the article
-            url: URL of the article
-            title: Title of the article
-            trend: Identified trend (or None if below threshold)
-            similarity_score: Similarity score (0-1)
-            publish_date: Publication date of the article
-            summary: Summary of the article content
-            image_url: URL to the article's image
-            categories: List of categories the article belongs to
-            main_category: Main category of the article
-            content: Full article content
-            
-        Returns:
-            True if save was successful, False otherwise
-        """
-        try:
-            await self._ensure_table_exists()
-            
-            if categories is None:
-                categories = []
-            
-            if main_category is None:
-                main_category = 'Other'
-            
-            with self._get_digitalocean_session() as session:
-                stmt = trending_articles_table.insert().values(
-                    article_id=article_id,
-                    url=url,
-                    title=title,
-                    trend=trend,
-                    summary=summary,
-                    image_url=image_url,
-                    categories=categories,
-                    main_category=main_category,
-                    similarity_score=similarity_score,
-                    publish_date=publish_date,
-                    content=content,
-                    analyzed_date=func.now()
-                )
-                session.execute(stmt)
-                session.commit()
-                print(f"Trending analysis saved to database for article {article_id}")
-                return True
-            
-        except Exception as e:
-            print(f"Error saving trending analysis to database: {str(e)}")
-            return False
-    
-    async def get_recent_articles_by_time(self, hours: int = 24, limit: int = 20) -> List[Dict]:
-        """
-        Fetch articles from Supabase published within the last X hours.
-        
-        Args:
-            hours: Number of hours to look back
-            limit: Maximum number of articles to fetch
-            
-        Returns:
-            List of article dictionaries
-        """
-        try:
-            with self._get_supabase_session() as session:
-                cutoff_time = datetime.now() - timedelta(hours=hours) 
-                
-                query = select(
-                    articles_table.c.id,
-                    articles_table.c.url,
-                    articles_table.c.title,
-                    articles_table.c.content,
-                    articles_table.c.publish_date
-                ).where(
-                    articles_table.c.publish_date >= cutoff_time
-                ).order_by(
-                    articles_table.c.publish_date.desc()
-                ).limit(limit)
-                
-                result = session.execute(query)
-                
-                articles = []
-                for row in result:
-                    articles.append({
-                        "id": str(row.id),
-                        "url": row.url,
-                        "title": row.title,
-                        "content": row.content,
-                        "publish_date": row.publish_date.isoformat() if row.publish_date else None
-                    })
-                
-                return articles
-        except Exception as e:
-            print(f"Error fetching recent articles from Supabase: {str(e)}")
-            return []
-    
-    async def get_articles_from_time(self, start_time: datetime, limit: int = 20) -> List[Dict]:
-        """
-        Fetch articles from Supabase published after a specific datetime.
-        
-        Args:
-            start_time: Specific start time to fetch articles from
-            limit: Maximum number of articles to fetch
-            
-        Returns:
-            List of article dictionaries
-        """
-        try:
-            with self._get_supabase_session() as session:
                 query = select(
                     articles_table.c.id,
                     articles_table.c.url,
@@ -260,10 +120,10 @@ class TrendingService:
                     articles_table.c.categories,
                     articles_table.c.main_category
                 ).where(
-                    articles_table.c.publish_date >= start_time
+                    articles_table.c.publish_date.between(start_time, end_time)
                 ).order_by(
                     articles_table.c.publish_date.desc()
-                ).limit(limit)
+                )
                 
                 result = session.execute(query)
                 
@@ -280,65 +140,87 @@ class TrendingService:
                         "publish_date": row.publish_date.isoformat() if row.publish_date else None
                     })
                 
+                print(f"Found {len(articles)} articles between the specified times")
                 return articles
         except Exception as e:
-            print(f"Error fetching articles from Supabase with custom start time: {str(e)}")
+            print(f"Error fetching articles from Supabase between times: {str(e)}")
             return []
-    
-    async def get_trending_articles(self, limit: int = 10) -> List[Dict]:
+
+    async def _save_to_database(
+        self,
+        article_id,
+        url,
+        title,
+        trend,
+        similarity_score,
+        summary,
+        publish_date,
+        categories,
+        main_category,
+        image_url,
+        content
+    ):
         """
-        Get trending articles from Digital Ocean database.
+        Private method to save trending article data to the Digital Ocean database.
         
         Args:
-            limit: Maximum number of articles to return
+            article_id: UUID of the article
+            url: URL of the article
+            title: Title of the article
+            trend: Identified trend (or None if below threshold)
+            similarity_score: Similarity score (0-1)
+            summary: Summary of the article content
+            publish_date: Publication date of the article
+            categories: List of categories the article belongs to
+            main_category: Main category of the article
+            image_url: URL to the article's image
+            content: Full article content
             
         Returns:
-            List of trending article dictionaries
+            str: The trending_id (UUID) if successful, None otherwise
         """
         try:
-            await self._ensure_table_exists()
+            table_exists = await self._ensure_table_exists()
+            if not table_exists:
+                self.logger.error("Could not ensure TrendingArticles table exists")
+                return None
+            
+            if categories is None:
+                categories = []
+            
+            if main_category is None or main_category == "":
+                main_category = "General"
+            
+            import uuid
+            trending_id = str(uuid.uuid4())
             
             with self._get_digitalocean_session() as session:
-                query = select(
-                    trending_articles_table.c.trending_id,
-                    trending_articles_table.c.article_id,
-                    trending_articles_table.c.url,
-                    trending_articles_table.c.title,
-                    trending_articles_table.c.trend,
-                    trending_articles_table.c.summary,
-                    trending_articles_table.c.image_url,
-                    trending_articles_table.c.categories,
-                    trending_articles_table.c.main_category,
-                    trending_articles_table.c.similarity_score,
-                    trending_articles_table.c.publish_date,
-                    trending_articles_table.c.analyzed_date
-                ).where(
-                    trending_articles_table.c.trend.isnot(None)
-                ).order_by(
-                    trending_articles_table.c.publish_date.desc(),
-                    trending_articles_table.c.similarity_score.desc()
-                ).limit(limit)
+                # Create insert statement
+                from sqlalchemy.sql import text
                 
-                result = session.execute(query)
+                # Insert the record
+                stmt = trending_articles_table.insert().values(
+                    trending_id=trending_id,
+                    article_id=article_id,
+                    url=url,
+                    title=title,
+                    trend=trend,
+                    summary=summary,
+                    similarity_score=float(similarity_score),
+                    publish_date=publish_date,
+                    image_url=image_url,
+                    categories=categories,
+                    main_category=main_category,
+                    content=content,
+                    analyzed_date=func.now() # Using SQL function for current timestamp
+                )
                 
-                trending_articles = []
-                for row in result:
-                    trending_articles.append({
-                        "trending_id": str(row.trending_id),
-                        "article_id": str(row.article_id),
-                        "url": row.url,
-                        "title": row.title,
-                        "trend": row.trend,
-                        "summary": row.summary,
-                        "similarity_score": float(row.similarity_score),
-                        "publish_date": row.publish_date.isoformat() if row.publish_date else None,
-                        "analyzed_date": row.analyzed_date.isoformat() if row.analyzed_date else None,
-                        "image_url": row.image_url,
-                        "categories": row.categories if row.categories else [],
-                        "main_category": row.main_category if row.main_category else "General"
-                    })
+                result = session.execute(stmt)
+                session.commit()
                 
-                return trending_articles
+                return trending_id
         except Exception as e:
-            print(f"Error fetching trending articles from database: {str(e)}")
-            return [] 
+            self.logger.error(f"Error saving to database: {str(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            return None
