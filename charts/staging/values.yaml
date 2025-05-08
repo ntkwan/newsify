@@ -15,7 +15,7 @@ services:
   audio-service:
     containerName: audio-service
     image: nkwn/newsify-audio-service
-    tag: latest-fa56088
+    tag: latest-cebdedc
     port: 8000
     ingress:
       enabled: true
