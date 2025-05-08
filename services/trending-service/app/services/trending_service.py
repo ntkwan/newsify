@@ -285,6 +285,57 @@ class TrendingService:
             print(f"Error fetching articles from Supabase with custom start time: {str(e)}")
             return []
     
+    async def get_articles_between_times(self, start_time: datetime, end_time: datetime) -> List[Dict]:
+        """
+        Fetch articles from Supabase published between two specific datetimes.
+        
+        Args:
+            start_time: Start time to fetch articles from (inclusive)
+            end_time: End time to fetch articles to (inclusive)
+            
+        Returns:
+            List of article dictionaries
+        """
+        try:
+            with self._get_supabase_session() as session:
+                print(f"Fetching articles between {start_time.isoformat()} and {end_time.isoformat()}")
+                
+                query = select(
+                    articles_table.c.id,
+                    articles_table.c.url,
+                    articles_table.c.title,
+                    articles_table.c.content,
+                    articles_table.c.publish_date,
+                    articles_table.c.image_url,
+                    articles_table.c.categories,
+                    articles_table.c.main_category
+                ).where(
+                    articles_table.c.publish_date.between(start_time, end_time)
+                ).order_by(
+                    articles_table.c.publish_date.desc()
+                )
+                
+                result = session.execute(query)
+                
+                articles = []
+                for row in result:
+                    articles.append({
+                        "id": str(row.id),
+                        "url": row.url,
+                        "title": row.title,
+                        "content": row.content,
+                        "image_url": row.image_url,
+                        "categories": row.categories,
+                        "main_category": row.main_category,
+                        "publish_date": row.publish_date.isoformat() if row.publish_date else None
+                    })
+                
+                print(f"Found {len(articles)} articles between the specified times")
+                return articles
+        except Exception as e:
+            print(f"Error fetching articles from Supabase between times: {str(e)}")
+            return []
+    
     async def get_trending_articles(self, limit: int = 10) -> List[Dict]:
         """
         Get trending articles from Digital Ocean database.
