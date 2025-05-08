@@ -202,103 +202,6 @@ async def get_trending_related(country: str = Query("US", description="Country c
     keywords = get_trending_keywords(country_code=country)
     return get_related_queries(keywords)
 
-@app.post("/analyze/single", response_model=TrendingArticle)
-async def analyze_article(article: ArticleAnalysisRequest):
-    """Analyze a single article for trending relevance and save results to database"""
-    trends_data = get_related_queries(get_trending_keywords())
-    
-    analysis = analyze_article_trending(article.content, trends_data)
-    
-    summary = None
-    publish_date = None
-    if article.publish_date:
-        try:
-            publish_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
-        except (ValueError, TypeError):
-            print(f"Invalid publish_date format: {article.publish_date}")
-    
-    result = {
-        "url": article.url or "",
-        "title": article.title or "",
-        "content": article.content,
-        "trend": analysis["trend"],
-        "summary": summary,
-        "similarity_score": analysis["similarity_score"],
-        "article_id": article.article_id,
-        "publish_date": article.publish_date,
-        "analyzed_date": datetime.now().isoformat()
-    }
-    
-    if article.article_id:
-        trending_service = TrendingService()
-        await trending_service.save_trending_analysis(
-            article_id=article.article_id,
-            url=article.url or "",
-            title=article.title or "",
-            trend=analysis["trend"],
-            summary=summary,
-            similarity_score=analysis["similarity_score"],
-            publish_date=publish_date,
-            categories=[],  # Default empty array for categories
-            main_category="General",  # Default main category
-            image_url=None,  # Default image URL
-            content=article.content  # Article content
-        )
-    
-    return result
-
-@app.post("/analyze/batch", response_model=List[TrendingArticle])
-async def analyze_articles_batch(request: ArticleBatchRequest):
-    """Analyze multiple articles for trending relevance and save results to database"""
-    if not request.articles:
-        return []
-    
-    trends_data = get_related_queries(get_trending_keywords())
-    trending_service = TrendingService()
-    
-    results = []
-    for article in request.articles:
-        analysis = analyze_article_trending(article.content, trends_data)
-        
-        summary = None
-        publish_date = None
-        if article.publish_date:
-            try:
-                publish_date = datetime.fromisoformat(article.publish_date.replace('Z', '+00:00'))
-            except (ValueError, TypeError):
-                print(f"Invalid publish_date format: {article.publish_date}")
-        
-        result = {
-            "url": article.url or "",
-            "title": article.title or "",
-            "content": article.content,
-            "trend": analysis["trend"],
-            "summary": summary,
-            "similarity_score": analysis["similarity_score"],
-            "article_id": article.article_id,
-            "publish_date": article.publish_date,
-            "analyzed_date": datetime.now().isoformat()
-        }
-        
-        if article.article_id:
-            await trending_service.save_trending_analysis(
-                article_id=article.article_id,
-                url=article.url or "",
-                title=article.title or "",
-                trend=analysis["trend"],
-                summary=summary,
-                similarity_score=analysis["similarity_score"],
-                publish_date=publish_date,
-                categories=[],  # Default empty array for categories
-                main_category="General",  # Default main category
-                image_url=None,  # Default image URL
-                content=article.content  # Article content
-            )
-        
-        results.append(result)
-    
-    return results
-
 @app.post("/analyze", response_model=List[TrendingArticle])
 async def analyze_latest_articles(
     startTime: Optional[str] = Query(None, description="Start time in ISO format (YYYY-MM-DDTHH:MM:SS)"),
@@ -505,38 +408,22 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                         if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
                             logger.info(f"[{ENVIRONMENT}] Acquired lock for time range: {lock_key}")
                             
-                            trending_service = TrendingService()
-                            
                             try:
-                                # Use the new method to get articles between specific times
-                                articles = asyncio.run(trending_service.get_articles_between_times(
-                                    start_time=start_time,
-                                    end_time=end_time
-                                ))
-                                
-                                if articles:
-                                    logger.info(f"[{ENVIRONMENT}] Found {len(articles)} articles to analyze")
-                                    
-                                    # Use asyncio to run the trending analysis with the startTime and endTime params
-                                    results = asyncio.run(analyze_latest_articles(
+                                results = asyncio.run(analyze_latest_articles(
                                         startTime=start_time.isoformat(),
                                         endTime=end_time.isoformat()
-                                    ))
+                                ))
                                     
-                                    logger.info(f"[{ENVIRONMENT}] Successfully analyzed {len(results)} articles for time range {time_from} to {time_to}")
+                                logger.info(f"[{ENVIRONMENT}] Successfully analyzed and saved {len(results)} articles for time range {time_from} to {time_to}")
                                     
-                                    # Set a completion key for this time range
-                                    completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
-                                    redis_service.client.set(completion_key, "1", ex=86400)  # Keep for 24 hours
-                                else:
-                                    logger.warning(f"[{ENVIRONMENT}] No articles found for time range {time_from} to {time_to}")
+                                completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
+                                redis_service.client.set(completion_key, "1", ex=86400)  # Keep for 24 hours
                             except Exception as processing_error:
                                 logger.error(f"[{ENVIRONMENT}] Failed to process articles: {str(processing_error)}")
                                 redis_service.client.delete(lock_key)
                         else:
                             logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, trending analysis already in progress or completed by another instance")
                             
-                            # Check if it's already completed
                             completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
                             if redis_service.client and redis_service.client.exists(completion_key):
                                 logger.info(f"[{ENVIRONMENT}] Trending analysis for time range {time_from} to {time_to} has already been completed")
