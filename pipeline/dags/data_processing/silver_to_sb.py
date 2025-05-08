@@ -10,6 +10,13 @@ import redis
 import json
 import pytz
 from pathlib import Path
+from pymilvus import FieldSchema, CollectionSchema, DataType, Collection
+from pymilvus import utility, connections
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from sqlalchemy import create_engine
+from nanoid import generate
+from postgrest.exceptions import APIError
 
 load_dotenv()
 
@@ -117,11 +124,16 @@ def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
         ingest_date = process_date.strftime('%Y-%m-%d')
         hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
         hours_str = ",".join([f"'{h}'" for h in hours_to_read])
-
+        
+        # df = spark.read.format("delta").load(s3_base_path).where(
+        #     f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
+        # )
+        # print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
         df = spark.read.format("delta").load(s3_base_path).where(
-            f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
+            "processed_date = '2025-05-08' AND processed_hour = '00'"
         )
-
+        df.show()
+       
         record_count = df.count()
         print(f"Loaded {record_count} records from silver data")
         return df if record_count > 0 else spark.createDataFrame([], df.schema)
@@ -129,41 +141,86 @@ def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
         print(f"Error reading data from silver: {str(e)}")
         raise
 
-# def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
-#     try:
-#         # current_time = datetime.now(pytz.UTC)
-#         # ingest_date = process_date.strftime('%Y-%m-%d')
-#         # hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
-#         # paths_to_read = [f"{s3_base_path}/processed_date={ingest_date}/processed_hour={hour}" for hour in hours_to_read]
-#         # dfs = []
+def connect_to_milvus():
+    connections.connect("default", host="localhost", port="19530")
+    print("Connected to Milvus")
+     
+def create_milvus_collection():
+    collection_name = os.getenv("COLLECTION_NAME")
+    
+    if utility.has_collection(collection_name):
+        print(f"Collection '{collection_name}' existed.")
+        return Collection(collection_name)
+    
+    dim = 384 # embeddings dim
+    
+    fields = [
+        FieldSchema(name="article_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+        FieldSchema(name="article_embed", dtype=DataType.FLOAT_VECTOR, dim=dim),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=512),
+        FieldSchema(name="url", dtype=DataType.VARCHAR, max_length=1024),
+        FieldSchema(name="main_category", dtype=DataType.VARCHAR, max_length=128),
+        FieldSchema(name="publish_date", dtype=DataType.INT64, max_length=32),
+    ]
+    
+    schema = CollectionSchema(
+        fields=fields,
+        description="News articles for recommendation"
+    )
+     
+    collection = Collection(name=collection_name, schema=schema)
+    print(f"Create collection '{collection_name}' successfully.")
+    
+    return collection
 
-#             try:
-#                 df = spark.read.format("delta").load(s3_base_path).where(
-#                     f"processed_date = '{ingest_date}' AND processed_hour IN ({','.join(hours_to_read)})"
-#                 )
+def generate_embeddings(titles, contents):
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    combined_texts = [f"{title} {content}" for title, content in zip(titles, contents)]
+    embeddings = model.encode(combined_texts)  
+    return embeddings    
 
-#                 record_count = df.count()
-#                 print(f"Loaded data from {path} with {record_count} records")
-                
-#                 if record_count > 0:  # Only append if data exists
-#                     dfs.append(df)
-#             except Exception as e:
-#                 print(f"Skipping {path} due to error: {str(e)}")
-#                 continue 
+def delete_existing_vectors_by_url(collection, urls):
+    for url in urls:
+        expr = f'url == "{url}"'
+        res = collection.query(expr, output_fields=["article_id"])
         
-#         if dfs:
-#             final_df = dfs[0]
-#             for df in dfs[1:]:
-#                 final_df = final_df.union(df)
-#             return final_df
-#         else:
-#             print("No data found in the specified time range.")
-#             return spark.createDataFrame([], StructType())
-#     except Exception as e:
-#         print(f"Error reading data from silver: {str(e)}")
-#         raise
-
-def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date):
+        if res:
+            ids_to_delete = [r["article_id"] for r in res]
+            ids_str = "[" + ", ".join(str(id_) for id_ in ids_to_delete) + "]"
+            collection.delete(expr=f'article_id in {ids_str}')
+            print(f"Deleted {len(ids_to_delete)} existing vectors for URL: {url}")
+            
+def save_to_milvus(collection, article_embeds, titles, urls, categories, publish_dates):
+    docs = [
+        article_embeds,  
+        titles,  
+        urls,  
+        categories, 
+        publish_dates  
+    ]
+    
+    # creating index on article_embeds field 
+    index_params = {
+        "metric_type": "L2",
+        "index_type": "HNSW",
+        "params": {
+            "M": 32,              
+            "efConstruction": 300,
+            "efSearch": 200
+        }    
+    }
+    collection.create_index(field_name="article_embed", index_params=index_params)
+    
+    collection.load()
+    
+    delete_existing_vectors_by_url(collection, urls)
+    
+    result = collection.insert(docs)
+    
+    print(f"Inserted {len(urls)} records into Milvus")
+    return result
+ 
+def save_to_supabase_and_milvus(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date):
     try:
         # print(f"supabase_url: {supabase_url}")
         # print(f"supabase_key: {supabase_key}")
@@ -201,8 +258,8 @@ def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name
         if record_count == 0:
             print("No new records to process")
             return None
-
-        # Filter records newer than last_ingest_time
+        
+        # filter records newer than last_ingest_time
         silver_df = silver_df.filter(col("ingest_time") > last_ingest_time)
         new_record_count = silver_df.count()
         print(f"Processing {new_record_count} new records since last ingest time")
@@ -211,8 +268,7 @@ def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name
             print("No new records to process after filtering")
             return None
         
-        
-       # Create publish_date from year, month_number, day, hour, minute
+       # create publish_date from year, month_number, day, hour, minute
         silver_df = silver_df.withColumn(
             "publish_date",
             when(
@@ -237,6 +293,11 @@ def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name
                     "yyyy-MM-dd HH:mm:ss"
                 )
             ).otherwise(None)
+        ) 
+        
+        silver_df = silver_df.withColumn(
+            "publish_date_epoch",
+            unix_timestamp(col("publish_date")) 
         )
         
         upsert_df = silver_df.select(
@@ -245,24 +306,49 @@ def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name
         )
         
         df = upsert_df.toPandas() 
+        if df.empty:
+            print("No data to write to Supabase after conversion")
+            return None
+        
         total_rows = len(df)
+        
+        publish_dates_int64 = df['publish_date'].apply(
+                lambda x: int(x.timestamp()) if pd.notnull(x) else None
+                ).tolist()
+        
+        df["publish_date"] = df["publish_date"].apply(
+            lambda x: x.isoformat() + "+00:00" if pd.notnull(x) else None
+        )
+        
         print(f"Writing {total_rows} rows to Supabase table: {table_name}")
         
         if total_rows == 0:
             print("No data to write to Supabase after conversion")
             return None
         
-        df["publish_date"] = df["publish_date"].apply(
-            lambda x: x.isoformat() + "+00:00" if pd.notnull(x) else None
-        )
-        
         try: 
+            # upsert to supabase
             response = supabase.table(table_name).upsert(
                 df.to_dict(orient="records"),
                 on_conflict=["url", "src"]
             ).execute()
             print(f"Successfully wrote {total_rows} records to Supabase table: {table_name}")
             
+            # convert df columns to lists
+            titles = df['title'].tolist()
+            contents = df['content'].tolist()
+            urls = df['url'].tolist()
+            categories = df['main_category'].tolist()
+
+            # create embeddings
+            article_embeds = generate_embeddings(titles, contents)
+            
+            # save to milvus
+            collection = create_milvus_collection() 
+            save_to_milvus(collection, article_embeds, titles, urls, categories, publish_dates_int64)
+            print("Successfully wrote data to Milvus.")
+            
+            # send notification
             details = {
                 "processed_rows": total_rows,
                 "table": table_name,
@@ -274,7 +360,7 @@ def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name
             print(f"Notification sent for {total_rows} new records")
             
         except APIError as e:
-            print(f"Error writing data into Supabase: {response.error}")
+            print(f"Error writing data into Supabase or Milvus: {str(e)}")
             return None
             
         result_row = silver_df.agg(max("ingest_time").alias("max_ingest_time")).collect()[0]
@@ -291,7 +377,7 @@ def save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name
             print(f"No ingest time to update.")
             
         return total_rows   
-        # return df
+
     except Exception as e:
         print(f"Error saving data to Supabase: {str(e)}")
         raise
@@ -304,22 +390,7 @@ if __name__ == "__main__":
     process_date = date.today()
     
     spark = create_spark_session()
-    
-    # df = save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name)
-    total_rows = save_to_supabase(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date)
-    
-    # if df is not None:
-    #     details = {
-    #         "processed_rows": len(df),
-    #         "table": table_name,
-    #     }
-    #     send_notification(update_type="general", details=details)
-    # else:
-    #     details = {
-    #         "processed_rows": 0,
-    #         "table": table_name,
-    #         "message": "No new records to process"
-    #     }
-    #     send_notification(update_type="general", details=details)
+    connect_to_milvus()
+    total_rows = save_to_supabase_and_milvus(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date)
     
     spark.stop()

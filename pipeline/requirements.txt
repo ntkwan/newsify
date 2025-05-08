@@ -14,3 +14,7 @@ newspaper3k
 PyYAML
 lxml_html_clean
 nanoid
+pymilvus
+sentence-transformers
+numpy 
+hf_xet
