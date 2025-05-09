@@ -16,6 +16,7 @@ class Article(BaseModel):
     publish_date: Optional[str] = None
     author: Optional[str] = None
     summary: Optional[str] = None
+    uploaded_date: Optional[str] = None
 
 
 class TranscriptLine(BaseModel):

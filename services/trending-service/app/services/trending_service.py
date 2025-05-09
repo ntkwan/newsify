@@ -118,9 +118,10 @@ class TrendingService:
                     articles_table.c.publish_date,
                     articles_table.c.image_url,
                     articles_table.c.categories,
-                    articles_table.c.main_category
+                    articles_table.c.main_category,
+                    articles_table.c.uploaded_date
                 ).where(
-                    articles_table.c.publish_date.between(start_time, end_time)
+                    articles_table.c.uploaded_date.between(start_time, end_time)
                 ).order_by(
                     articles_table.c.publish_date.desc()
                 )
@@ -195,10 +196,8 @@ class TrendingService:
             trending_id = str(uuid.uuid4())
             
             with self._get_digitalocean_session() as session:
-                # Create insert statement
                 from sqlalchemy.sql import text
                 
-                # Insert the record
                 stmt = trending_articles_table.insert().values(
                     trending_id=trending_id,
                     article_id=article_id,
