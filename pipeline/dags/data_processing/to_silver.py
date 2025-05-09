@@ -11,8 +11,6 @@ from dateutil import parser
 import pytz
 from rapidfuzz import fuzz
 from datetime import datetime
-# import findspark
-# findspark.init()
 
 def create_spark_session():
     load_dotenv()
@@ -20,6 +18,9 @@ def create_spark_session():
     spark = SparkSession.builder \
     .appName("BronzeToSilver") \
     .master("local[*]") \
+    .config("spark.driver.memory", "8g") \
+    .config("spark.executor.memory", "4g") \
+    .config("spark.python.worker.timeout", "600") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
@@ -76,8 +77,8 @@ def read_data_bronze(spark, s3_input_path) -> DataFrame:
         start_hour, end_hour = get_time_slot(current_hour)
 
         hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
-        paths_to_read = [f"{s3_input_path}/ingest_date={ingest_date}/ingest_hour={hour}" for hour in hours_to_read]
-        
+        paths_to_read = [f"{s3_input_path}/ingest_date=2025-05-07/ingest_hour=14"]
+        # paths_to_read = [f"{s3_input_path}/ingest_date={ingest_date}/ingest_hour={hour}" for hour in hours_to_read]
         dfs = [] 
         
         for path in paths_to_read:
@@ -119,15 +120,8 @@ def read_data_bronze(spark, s3_input_path) -> DataFrame:
         print(f"Error reading data from bronze: {str(e)}")
         raise
     
-# def parse_to_utc(publish_date_str):
-#     try:
-#         dt = parser.parse(publish_date_str)
-#         return dt.astimezone(pytz.utc)
-#     except:
-#         return None
-    
 def parse_to_utc(publish_date_str):
-    if not publish_date_str:
+    if not publish_date_str or publish_date_str.strip().lower() in ["", "null", "no publish date"]:
         return None
     try:
         tzinfos = {
@@ -142,16 +136,18 @@ def parse_to_utc(publish_date_str):
             "PDT": pytz.FixedOffset(-7 * 60),
             "UTC": pytz.UTC
         }
-        dt = parser.parse(publish_date_str, fuzzy=True, tzinfos=tzinfos)
+        dt = parser.parse(publish_date_str, fuzzy=True, tzinfos=tzinfos, dayfirst=False)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=pytz.UTC)
         return dt.astimezone(pytz.UTC)
-    except:
+    except Exception as e:
+        print(f"Failed to parse date: {publish_date_str}, error: {str(e)}")
         return None
 
 parse_to_utc_udf = udf(parse_to_utc, TimestampType())
 
 def process_publish_date(df: DataFrame) -> DataFrame:
+    df = df.cache()
     df = df.withColumn(
         "publish_date",
         when(col("publish_date") == "No publish date", None)
@@ -180,7 +176,9 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         "yyyy-MM-dd",
         "MMM dd, yyyy HH:mm",
         "dd/MM/yyyy HH:mm",
-        "yyyy/MM/dd HH:mm"
+        "yyyy/MM/dd HH:mm",
+        "MMM dd yyyy HH:mm:ss z",  
+        "EEE MMM dd yyyy HH:mm:ss",
     ]
     
     df = df.withColumn(
@@ -196,7 +194,7 @@ def process_publish_date(df: DataFrame) -> DataFrame:
     df = df.withColumn(
         "publish_date_utc",
         when(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull(),
-             parse_to_utc_udf(col("cleaned_publish_date"))
+            parse_to_utc_udf(col("cleaned_publish_date"))
         ).otherwise(col("publish_date_utc"))
     )
     
@@ -222,6 +220,11 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         
     return df
 
+def clean_category_name(cat_name: str) -> str:
+    if cat_name.startswith("guardian_"):
+        cat_name = cat_name[len("guardian_"):]
+    return cat_name.replace("_", " ").strip().lower()
+
 def fuzzy_match_categories(cat_list, category_map, threshold=60):
     if not cat_list:
         return "Other"
@@ -232,9 +235,11 @@ def fuzzy_match_categories(cat_list, category_map, threshold=60):
     for raw_cat in cat_list:
         if not raw_cat:
             continue
+        cleaned_cat = clean_category_name(raw_cat)
         for unified_cat, keywords in category_map.items():
             for keyword in keywords:
-                score = fuzz.partial_ratio(raw_cat.lower(), keyword.lower())
+                cleaned_cat = raw_cat.replace("_", " ").lower()
+                score = fuzz.token_set_ratio(cleaned_cat, keyword.lower())
                 if score > max_score:
                     max_score = score
                     best_match = unified_cat
@@ -246,6 +251,8 @@ def clean_data(news_df: DataFrame, category_map) -> DataFrame:
     
     # Remove duplicates in the new data
     df = df.dropDuplicates(["src", "url"])
+    
+    df = df.filter(~col('url').rlike(r'/crosswords?/'))
     
     # Clean title and content
     df = df \
@@ -340,28 +347,39 @@ def deduplicate_news(spark, cleaned_news_df, s3_output_path):
     return deduped_df
 
 def save_to_silver(df, s3_output_path, category_map):
-    processed_date = current_date()
-    df = df.withColumn("processed_date", processed_date) 
-    
     try:
+        df = df.withColumn("processed_time", current_timestamp()) \
+            .withColumn("processed_date", date_format(col("processed_time"), "yyyy-MM-dd")) \
+            .withColumn("processed_hour", date_format(col("processed_time"), "HH"))
+
         valid_df, error_df = clean_data(df, category_map)
         print(f"After cleaning: {valid_df.count()} valid records, {error_df.count()} error records")
         
         valid_df = process_publish_date(valid_df)
         unparseable_df = valid_df.filter(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull())
 
-        error_schema_columns = error_df.columns
-        unparseable_df = unparseable_df.select(error_schema_columns)
+        error_schema_columns = list(set(error_df.columns) & set(unparseable_df.columns))
+        unparseable_df = unparseable_df.select(*error_schema_columns)
+        
         valid_df = valid_df.filter(~(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull()))
-        error_df = error_df.union(unparseable_df)
+        error_df = error_df.select(*error_schema_columns).union(unparseable_df)
+        # error_df = error_df.union(unparseable_df)
+        error_df = error_df.cache()
+        error_count = error_df.count()
         
-        if not error_df.isEmpty():
-            error_df.write.format("delta") \
-                .option("mergeSchema", "true") \
-                .mode("append") \
-                .save(f"{s3_output_path}_errors")
-            print(f"Saved {error_df.count()} corrupt records to {s3_output_path}_errors")
+        if error_count > 0:
+            print(f"Saving {error_count} error records...")
+            try:
+                error_df.write.format("delta") \
+                    .option("mergeSchema", "true") \
+                    .mode("append") \
+                    .save(f"{s3_output_path}_errors")
+                print(f"Saved {error_df.count()} corrupt records to {s3_output_path}_errors")
+            except Exception as write_err:
+                print(f"Failed to save error records: {write_err}")
         
+        error_df.unpersist()
+       
         result_df = deduplicate_news(spark, valid_df, s3_output_path)
         print(f"New unique records after deduplication: {result_df.count()}")
         
@@ -378,6 +396,10 @@ def save_to_silver(df, s3_output_path, category_map):
         print(f"Final valid records before saving: {result_df.count()}")
         
         schema_columns = [f.name for f in define_schema()]
+        if "processed_date" not in schema_columns:
+            schema_columns.append("processed_date")
+        if "processed_hour" not in schema_columns:
+            schema_columns.append("processed_hour")    
         result_df = result_df.select(schema_columns)
         
         if DeltaTable.isDeltaTable(spark, s3_output_path):
@@ -392,9 +414,10 @@ def save_to_silver(df, s3_output_path, category_map):
             print(f"Successfully merged data into silver layer: {s3_output_path}")
         else:
             result_df.write.format("delta") \
+                .option("maxRecordsPerFile", 5000) \
                 .option("mergeSchema", "true") \
                 .mode("append") \
-                .partitionBy("processed_date") \
+                .partitionBy("processed_date", "processed_hour") \
                 .save(s3_output_path)
             print(f"Successfully saved data to silver layer: {s3_output_path}")
     except Exception as e:
@@ -415,7 +438,7 @@ if __name__ == "__main__":
         "Technology": ["tech", "technology", "gadgets", "ai", "software", "hardware", "computing"],
         "Health": ["health", "wellness", "fitness", "medicine", "mental health", "nutrition"],
         "Business and Finance": ["business", "economy", "markets", "finance", "stocks", "investing"],
-        "Entertainment": ["entertainment", "movies", "tv", "music", "celebrities", "hollywood", "film"],
+        "Entertainment": ["entertainment", "movies", "tv", "music", "celebrities", "hollywood", "film", "book"],
         "Politics": ["politics", "election", "government", "policy", "diplomacy"],
         "Science": ["science", "space", "research", "physics", "biology", "nasa"],
         "Climate": ["climate", "environment", "global warming", "carbon", "sustainability"],
