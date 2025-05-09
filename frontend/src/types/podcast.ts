@@ -12,6 +12,7 @@ export interface Podcast {
     timestamp_script: TimestampScript[];
     audio_url: string;
     length_seconds: number;
+    links: string[];
 }
 
 export interface PodcastResponse {
