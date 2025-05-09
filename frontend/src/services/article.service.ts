@@ -1,4 +1,5 @@
 import { Article } from '@/types/article';
+import { TrendingArticlesResponse } from '@/types/article';
 
 export class ArticleService {
     static async getArticles(
@@ -37,4 +38,24 @@ export class ArticleService {
 
         return response.json();
     }
+}
+
+export async function getTrendingArticles(
+    page: number = 1,
+    pageSize: number = 10,
+    minScore: number = 0.5,
+): Promise<TrendingArticlesResponse> {
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/articles/trending?page=${page}&pageSize=${pageSize}&minScore=${minScore}`;
+
+    const response = await fetch(url, {
+        headers: {
+            Accept: 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch trending articles');
+    }
+
+    return response.json();
 }
