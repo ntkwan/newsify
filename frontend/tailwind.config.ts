@@ -1,15 +1,17 @@
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 import tailwindcssAnimate from 'tailwindcss-animate';
 import tailwindScrollbarHide from 'tailwind-scrollbar-hide';
 
 const config: Config = {
     darkMode: ['class', 'media'],
     content: [
-        './pages/**/*.{js,ts,jsx,tsx,mdx}',
-        './components/**/*.{js,ts,jsx,tsx,mdx}',
-        './app/**/*.{js,ts,jsx,tsx,mdx}',
-        '*.{js,ts,jsx,tsx,mdx}',
+        './pages/**/*.{ts,tsx}',
+        './components/**/*.{ts,tsx}',
+        './app/**/*.{ts,tsx}',
+        './src/**/*.{ts,tsx}',
     ],
+    prefix: '',
     theme: {
         container: {
             center: true,
@@ -20,19 +22,26 @@ const config: Config = {
         },
         extend: {
             colors: {
+                primary: {
+                    DEFAULT: '#00b14f',
+                    dark: '#005339',
+                    light: '#33c16f',
+                },
+                secondary: {
+                    DEFAULT: '#d9fcde',
+                    dark: '#c5e8c9',
+                    light: '#e3fde7',
+                },
+                accent: {
+                    DEFAULT: '#d3f035',
+                    dark: '#b8d32e',
+                    light: '#dbf35f',
+                },
                 border: 'hsl(var(--border))',
                 input: 'hsl(var(--input))',
                 ring: 'hsl(var(--ring))',
                 background: 'hsl(var(--background))',
                 foreground: 'hsl(var(--foreground))',
-                primary: {
-                    DEFAULT: '#01aa4f',
-                    foreground: 'hsl(var(--primary-foreground))',
-                },
-                secondary: {
-                    DEFAULT: 'hsl(var(--secondary))',
-                    foreground: 'hsl(var(--secondary-foreground))',
-                },
                 destructive: {
                     DEFAULT: 'hsl(var(--destructive))',
                     foreground: 'hsl(var(--destructive-foreground))',
@@ -40,10 +49,6 @@ const config: Config = {
                 muted: {
                     DEFAULT: 'hsl(var(--muted))',
                     foreground: 'hsl(var(--muted-foreground))',
-                },
-                accent: {
-                    DEFAULT: 'hsl(var(--accent))',
-                    foreground: 'hsl(var(--accent-foreground))',
                 },
                 popover: {
                     DEFAULT: 'hsl(var(--popover))',
@@ -58,6 +63,9 @@ const config: Config = {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',
                 sm: 'calc(var(--radius) - 4px)',
+            },
+            fontFamily: {
+                sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
             },
             keyframes: {
                 'accordion-down': {
@@ -76,6 +84,6 @@ const config: Config = {
         },
     },
     plugins: [tailwindcssAnimate, tailwindScrollbarHide],
-};
+} satisfies Config;
 
 export default config;
