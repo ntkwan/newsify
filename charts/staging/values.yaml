@@ -27,7 +27,7 @@ services:
   trending-service:
     containerName: trending-service
     image: nkwn/newsify-trending-service
-    tag: latest-09daa40
+    tag: latest-bec8bc0
     port: 8001
     ingress:
       enabled: true
