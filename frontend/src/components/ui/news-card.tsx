@@ -6,20 +6,20 @@ interface NewsCardProps {
     image: string;
     category: string;
     title: string;
-    description: string;
     isLarge?: boolean;
+    href: string;
 }
 
 export default function NewsCard({
     image,
     category,
     title,
-    description,
     isLarge = false,
+    href,
 }: NewsCardProps) {
     return (
         <div className={`group ${isLarge ? 'row-span-2' : ''}`}>
-            <Link href="#" className="block">
+            <Link href={href} className="block">
                 <div className="relative overflow-hidden rounded-lg mb-3">
                     <Image
                         src={image || '/placeholder.svg'}
@@ -40,7 +40,6 @@ export default function NewsCard({
                 >
                     {title}
                 </h3>
-                <p className="text-sm text-gray-600">{description}</p>
             </Link>
         </div>
     );
