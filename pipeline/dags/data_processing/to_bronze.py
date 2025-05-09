@@ -9,9 +9,6 @@ trim, broadcast, from_utc_timestamp, hour, minute, dayofmonth, month, year, lit,
 from datetime import datetime, date
 import argparse
 
-# import findspark
-# findspark.init()
-
 def create_spark_session():
     load_dotenv()
 
@@ -98,6 +95,7 @@ def save_to_bronze(df, s3_output_path: str):
             .withColumn("ingest_hour", date_format(col("ingest_time"), "HH"))
             
         df.write.format("delta") \
+            .option("maxRecordsPerFile", 5000) \
             .mode("append") \
             .partitionBy("ingest_date", "ingest_hour") \
             .option("mergeSchema", "true") \
@@ -138,7 +136,6 @@ if __name__ == "__main__":
     spark = create_spark_session()
     known_schema = get_delta_schema(spark, s3_output_path)
     df = read_json(spark, s3_input_path, known_schema)
-    # df = df.withColumn("ingest_time", current_timestamp())
     save_to_bronze(df, s3_output_path)
     print("Data saved to bronze layer successfully.")
     

@@ -79,3 +79,6 @@ services/trending-service/venv/
 **/__pycache__/
 services/.env
 pipeline/.env
+
+# Milvus database
+pipeline/milvus/volumes

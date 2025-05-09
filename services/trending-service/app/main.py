@@ -375,64 +375,50 @@ def handle_data_update(message: Dict[str, Any]) -> None:
                 time_range = data_dict.get('time_range', {})
                 
                 if available_hours and date_str and time_range:
-                    time_from = time_range.get('from', '')  # Format: "17h 07/05"
-                    time_to = time_range.get('to', '')      # Format: "23h 07/05"
-                    
-                    logger.info(f"[{ENVIRONMENT}] Using time range from: {time_from} to: {time_to}")
-                    
                     try:
-                        # Parse the time_from string to get start time
-                        hour_from_part = int(time_from.split('h')[0].strip())
-                        date_from_part = time_from.split('h')[1].strip()
-                        day_from, month_from = date_from_part.split('/')
+                        time_from = time_range.get('from', '')
+                        time_to = time_range.get('to', '')
                         
-                        # Create full date string with current year
-                        current_year = datetime.now().year
-                        from_date_str = f"{current_year}-{month_from.zfill(2)}-{day_from.zfill(2)}"
-                        
-                        # Create start_time datetime
-                        from_date_obj = datetime.strptime(from_date_str, "%Y-%m-%d")
-                        start_time = from_date_obj.replace(hour=hour_from_part, minute=0, second=0)
-                        
-                        # Parse the time_to string to get end time
-                        hour_to_part = int(time_to.split('h')[0].strip())
-                        date_to_part = time_to.split('h')[1].strip()
-                        day_to, month_to = date_to_part.split('/')
-                        to_date_str = f"{current_year}-{month_to.zfill(2)}-{day_to.zfill(2)}"
-                        to_date_obj = datetime.strptime(to_date_str, "%Y-%m-%d")
-                        end_time = to_date_obj.replace(hour=hour_to_part, minute=59, second=59)
-                        
-                        logger.info(f"[{ENVIRONMENT}] Parsed time range: {start_time.isoformat()} to {end_time.isoformat()}")
-                        
-                        # Create a unique lock key for this time range
-                        lock_key = f"trending_lock:{ENVIRONMENT}:{time_from}-{time_to}"
-                        lock_expiry = 3600  # 1 hour in seconds
-                        
-                        if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
-                            logger.info(f"[{ENVIRONMENT}] Acquired lock for time range: {lock_key}")
+                        if not time_from or not time_to:
+                            logger.error(f"[{ENVIRONMENT}] Invalid time range format: from={time_from}, to={time_to}")
+                            return
                             
-                            try:
-                                results = asyncio.run(analyze_latest_articles(
-                                        startTime=start_time.isoformat(),
-                                        endTime=end_time.isoformat()
-                                ))
-                                    
-                                logger.info(f"[{ENVIRONMENT}] Successfully analyzed and saved {len(results)} articles for time range {time_from} to {time_to}")
-                                    
-                                completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
-                                redis_service.client.set(completion_key, "1", ex=86400)  # Keep for 24 hours
-                            except Exception as processing_error:
-                                logger.error(f"[{ENVIRONMENT}] Failed to process articles: {str(processing_error)}")
-                                redis_service.client.delete(lock_key)
-                        else:
-                            logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, trending analysis already in progress or completed by another instance")
+                        try:
+                            start_time = datetime.fromisoformat(time_from.replace('Z', '+00:00'))
+                            end_time = datetime.fromisoformat(time_to.replace('Z', '+00:00'))
                             
-                            completion_key = f"trending_completed:{ENVIRONMENT}:{time_from}-{time_to}"
-                            if redis_service.client and redis_service.client.exists(completion_key):
-                                logger.info(f"[{ENVIRONMENT}] Trending analysis for time range {time_from} to {time_to} has already been completed")
-                    
-                    except Exception as parse_error:
-                        logger.error(f"[{ENVIRONMENT}] Error parsing time range: {str(parse_error)}")
+                            logger.info(f"[{ENVIRONMENT}] Parsed time range: {start_time.isoformat()} to {end_time.isoformat()}")
+                            
+                            lock_key = f"trending_lock:{ENVIRONMENT}:{start_time.date()}_{start_time.hour}-{end_time.date()}_{end_time.hour}"
+                            lock_expiry = 3600  # 1 hour in seconds
+                            
+                            if redis_service.client and redis_service.client.set(lock_key, "1", ex=lock_expiry, nx=True):
+                                logger.info(f"[{ENVIRONMENT}] Acquired lock for time range: {lock_key}")
+                                
+                                try:
+                                    results = asyncio.run(analyze_latest_articles(
+                                            startTime=end_time.isoformat(),
+                                            endTime=end_time.isoformat()
+                                    ))
+                                        
+                                    logger.info(f"[{ENVIRONMENT}] Successfully analyzed and saved {len(results)} articles for time range {start_time.isoformat()} to {end_time.isoformat()}")
+                                        
+                                    completion_key = f"trending_completed:{ENVIRONMENT}:{start_time.date()}_{start_time.hour}-{end_time.date()}_{end_time.hour}"
+                                    redis_service.client.set(completion_key, "1", ex=86400)  # Keep for 24 hours
+                                except Exception as processing_error:
+                                    logger.error(f"[{ENVIRONMENT}] Failed to process articles: {str(processing_error)}")
+                                    redis_service.client.delete(lock_key)
+                            else:
+                                logger.info(f"[{ENVIRONMENT}] Lock acquisition failed for {lock_key}, trending analysis already in progress or completed by another instance")
+                                
+                                completion_key = f"trending_completed:{ENVIRONMENT}:{start_time.date()}_{start_time.hour}-{end_time.date()}_{end_time.hour}"
+                                if redis_service.client and redis_service.client.exists(completion_key):
+                                    logger.info(f"[{ENVIRONMENT}] Trending analysis for time range {start_time.isoformat()} to {end_time.isoformat()} has already been completed")
+                                    
+                        except ValueError as parse_error:
+                            logger.error(f"[{ENVIRONMENT}] Error parsing ISO timestamps: {str(parse_error)}")
+                    except Exception as e:
+                        logger.error(f"[{ENVIRONMENT}] Error processing time range: {str(e)}")
                 
         except json.JSONDecodeError:
             logger.warning(f"[{ENVIRONMENT}] Received invalid JSON in data update: {data}")

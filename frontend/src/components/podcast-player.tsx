@@ -62,14 +62,6 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
                     currentTime >= item.startTime && currentTime < item.endTime,
             );
             setActiveSubtitleIndex(activeIndex);
-
-            // Scroll đến subtitle đang được phát
-            if (activeIndex !== -1 && subtitleRefs.current[activeIndex]) {
-                subtitleRefs.current[activeIndex]?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center',
-                });
-            }
         }
     };
 

@@ -62,7 +62,8 @@ class ArticleService:
                     content=row_dict.get("content", ""),
                     image_url=row_dict.get("image_url"),
                     publish_date=article_date.isoformat() if article_date else None,
-                    author=row_dict.get("author")
+                    author=row_dict.get("author"),
+                    uploaded_date=row_dict.get("uploaded_date")
                 )
                 articles.append(article)
                 
@@ -98,7 +99,7 @@ class ArticleService:
         
         try:
             query = select(articles_table).where(
-                articles_table.c.publish_date.between(start_date, end_date)
+                articles_table.c.uploaded_date.between(start_date, end_date)
             ).order_by(articles_table.c.publish_date.desc())
             
             result = db.execute(query).fetchall()
@@ -122,7 +123,7 @@ class ArticleService:
                     content=row_dict.get("content", ""),
                     image_url=row_dict.get("image_url"),
                     publish_date=article_date.isoformat() if article_date else None,
-                    author=row_dict.get("author")
+                    author=row_dict.get("author"),
                 )
                 articles.append(article)
             

@@ -42,6 +42,7 @@ articles_table = Table(
     Column('content', Text),
     Column('views', BigInteger, default=0),
     Column('main_category', String),
+    Column('uploaded_date', DateTime(timezone=True), nullable=False),
     schema='public'
 )
 
