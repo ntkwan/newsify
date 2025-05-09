@@ -90,9 +90,14 @@ export default function ArticlePage() {
                     {loadingSummary ? (
                         <div className="h-6 w-2/3 bg-gray-200 rounded animate-pulse mb-6" />
                     ) : (
-                        <p className="text-lg text-gray-700 mb-6">
-                            {article.summary}
-                        </p>
+                        <div className="relative mb-8 p-6 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div className="absolute -top-3 left-6 bg-primary text-white px-4 py-1 rounded-md text-sm font-medium">
+                                Summary
+                            </div>
+                            <p className="text-lg text-gray-700 leading-relaxed">
+                                {article.summary}
+                            </p>
+                        </div>
                     )}
                     {article.url && (
                         <div className="flex justify-end">
