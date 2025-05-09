@@ -3,6 +3,9 @@ name: Audio Service CD
 on:
   push:
     branches: [ main, dev ]
+    paths:
+      - 'services/audio-service/**'
+      - '.github/workflows/audio-service-cd.yml'
 
 jobs:
   build:

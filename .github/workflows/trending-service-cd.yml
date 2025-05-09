@@ -3,6 +3,9 @@ name: Trending Service CD
 on:
   push:
     branches: [ main, dev ]
+    paths:
+      - 'services/trending-service/**'
+      - '.github/workflows/trending-service-cd.yml'
 
   workflow_dispatch:  # Allows manual triggering
 

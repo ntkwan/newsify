@@ -69,6 +69,45 @@ export class ArticlesController {
     }
 
     @ApiOperation({
+        summary: 'Search articles by title and content with relevance ranking',
+    })
+    @ApiResponse({
+        status: 200,
+        description:
+            'Returns articles matching the search query sorted by relevance',
+        type: SearchResponseDto,
+    })
+    @ApiQuery({
+        name: 'q',
+        description: 'Search query',
+        required: true,
+        type: String,
+        example: 'artificial intelligence',
+    })
+    @ApiQuery({
+        name: 'page',
+        description: 'Page number (1-based)',
+        required: false,
+        type: Number,
+        example: 1,
+    })
+    @ApiQuery({
+        name: 'size',
+        description: 'Top 20 results per page',
+        required: false,
+        type: Number,
+        example: 20,
+    })
+    @Get('search')
+    async searchArticles(
+        @Query('q') query: string,
+        @Query('page') page: number = 1,
+        @Query('size') size: number = 20,
+    ): Promise<SearchResponseDto> {
+        return this.searchService.searchArticles(query, page, size);
+    }
+
+    @ApiOperation({
         summary: 'Get trending articles sorted by similarity score',
     })
     @ApiResponse({
@@ -116,44 +155,5 @@ export class ArticlesController {
     @Get(':id')
     async getArticleById(@Param('id') id: string): Promise<ArticleResponseDto> {
         return this.articlesService.getArticleById(id);
-    }
-
-    @ApiOperation({
-        summary: 'Search articles by title and content with relevance ranking',
-    })
-    @ApiResponse({
-        status: 200,
-        description:
-            'Returns articles matching the search query sorted by relevance',
-        type: SearchResponseDto,
-    })
-    @ApiQuery({
-        name: 'q',
-        description: 'Search query',
-        required: true,
-        type: String,
-        example: 'artificial intelligence',
-    })
-    @ApiQuery({
-        name: 'page',
-        description: 'Page number (1-based)',
-        required: false,
-        type: Number,
-        example: 1,
-    })
-    @ApiQuery({
-        name: 'size',
-        description: 'Top 20 results per page',
-        required: false,
-        type: Number,
-        example: 20,
-    })
-    @Get('search')
-    async searchArticles(
-        @Query('q') query: string,
-        @Query('page') page: number = 1,
-        @Query('size') size: number = 20,
-    ): Promise<SearchResponseDto> {
-        return this.searchService.searchArticles(query, page, size);
     }
 }
