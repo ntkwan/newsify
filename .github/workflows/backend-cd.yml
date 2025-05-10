@@ -108,6 +108,8 @@ jobs:
             ELS_IP=${{ secrets.ELS_IP }}
             ELS_USERNAME=${{ secrets.ELS_USERNAME }}
             ELS_PASSWORD=${{ secrets.ELS_PASSWORD }}
+            MILVUS_ADDRESS=${{ secrets.MILVUS_ADDRESS }}
+            MILVUS_TOKEN=${{ secrets.MILVUS_TOKEN }}
             
       - name: Set output variables
         id: set_output_vars
