@@ -1,6 +1,5 @@
-from sqlalchemy import create_engine, Column, DateTime, String, Integer, BigInteger, Text, Table, MetaData, Float, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, Column, DateTime, String, BigInteger, Text, Table, MetaData, Float, Index
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 import os
