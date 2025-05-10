@@ -1,25 +1,46 @@
-import { Article } from '@/types/article';
+/**
+ * NewsArticle Component
+ *
+ * A reusable component for displaying individual news articles in a list format.
+ * Features:
+ * - Responsive layout (mobile and desktop)
+ * - Image display with fallback
+ * - Formatted date display
+ * - Category and metadata display
+ *
+ * @component
+ * @param {Object} props - Component props
+ * @param {Article} props.article - The article data to display
+ */
+
 import Image from 'next/image';
 import Link from 'next/link';
+import { Article } from '@/types/article';
 
 interface NewsArticleProps {
     article: Article;
 }
 
-export default function NewsArticle({ article }: NewsArticleProps) {
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
-    };
+/**
+ * Formats a date string into a localized date format
+ * @param {string} dateString - The date string to format
+ * @returns {string} Formatted date string
+ */
+const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+};
 
+export default function NewsArticle({ article }: NewsArticleProps) {
     const articleUrl = `/articles/${article.trending_id}`;
+    const formattedDate = formatDate(article.publish_date);
 
     return (
-        <div className="flex flex-col md:flex-row gap-4 border-b border-gray-200 pb-6">
+        <article className="flex flex-col md:flex-row gap-4 border-b border-gray-200 pb-6">
+            {/* Article Image */}
             <div className="md:w-1/4 flex-shrink-0">
                 <Link href={articleUrl}>
                     <Image
@@ -31,6 +52,8 @@ export default function NewsArticle({ article }: NewsArticleProps) {
                     />
                 </Link>
             </div>
+
+            {/* Article Content */}
             <div className="md:w-3/4">
                 <Link href={articleUrl} className="block group">
                     <h3 className="font-bold text-lg mb-2 group-hover:text-[#01aa4f] transition-colors">
@@ -39,10 +62,10 @@ export default function NewsArticle({ article }: NewsArticleProps) {
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span>{article.main_category}</span>
                         <span>•</span>
-                        <span>{formatDate(article.publish_date)}</span>
+                        <span>{formattedDate}</span>
                     </div>
                 </Link>
             </div>
-        </div>
+        </article>
     );
 }
