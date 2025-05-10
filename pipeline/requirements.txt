@@ -18,3 +18,4 @@ pymilvus
 sentence-transformers
 numpy 
 hf_xet
+apache-airflow-providers-apache-spark

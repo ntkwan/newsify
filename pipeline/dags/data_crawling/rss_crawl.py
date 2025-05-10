@@ -79,7 +79,7 @@ def extract_content(article_url):
         
         time.sleep(random.uniform(1.0, 3.0))
         
-        response = requests.get(article_url, headers=headers, proxies=proxies, timeout=20, verify=False)
+        response = requests.get(article_url, headers=headers, proxies=proxies, timeout=20, verify=True)
         response.raise_for_status()
         if response.status_code == 200:
             article = Article(article_url)
@@ -145,19 +145,6 @@ def get_articles_full():
     visited_urls = set()
     
     sorted_categories = sorted(rss_map.items(), key=lambda x: 0 if 'top_stories' in x[0] else 1)
-   
-    # for category, rss_url in sorted_categories:
-    #     feed = feedparser.parse(rss_url)
-        
-    #     for entry in feed.entries:
-    #         url = entry.get("link", "")
-    #         if url in visited_urls:
-    #             continue
-    #         visited_urls.add(url)
-            
-    #         enriched_article = normalize_and_enrich(entry, category)
-    #         if enriched_article:
-    #             res.append(enriched_article)
             
     def process_entry(entry, category):
         url = entry.get("link", "")
