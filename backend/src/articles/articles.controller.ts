@@ -136,6 +136,35 @@ export class ArticlesController {
     }
 
     @ApiOperation({
+        summary: 'Get related articles based on vector similarity',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Returns related articles based on vector similarity',
+        type: ArticleResponseDto,
+    })
+    @ApiQuery({
+        name: 'url',
+        description: 'URL of the article to find related articles for',
+        required: true,
+        type: String,
+    })
+    @ApiQuery({
+        name: 'top',
+        description: 'Number of related articles to return',
+        required: false,
+        type: Number,
+        example: 5,
+    })
+    @Get('related')
+    async getRelatedArticles(
+        @Query('url') url: string,
+        @Query('top') top: number = 5,
+    ): Promise<ArticleResponseDto[]> {
+        return this.articlesService.getRelatedArticles(url, top);
+    }
+
+    @ApiOperation({
         summary: 'Get article by ID with auto-generated summary if needed',
     })
     @ApiResponse({

@@ -116,4 +116,28 @@ export class ArticleRepository {
             ],
         });
     }
+
+    async findByUrl(url: string): Promise<Article | null> {
+        return Article.findOne({
+            where: { url },
+        });
+    }
+
+    async findByIds(ids: number[]): Promise<Article[]> {
+        return Article.findAll({
+            where: {
+                articleId: ids,
+            },
+        });
+    }
+
+    async findByUrls(urls: string[]): Promise<Article[]> {
+        return Article.findAll({
+            where: {
+                url: {
+                    [Op.in]: urls,
+                },
+            },
+        });
+    }
 }
