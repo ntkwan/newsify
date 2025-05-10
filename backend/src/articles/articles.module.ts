@@ -14,7 +14,7 @@ import { SyncService } from '../search/sync.service';
         SequelizeModule.forFeature([Article]),
     ],
     controllers: [ArticlesController],
-    providers: [ArticlesService, ArticleRepository],
+    providers: [ArticlesService, ArticleRepository, SyncService],
     exports: [ArticlesService],
 })
 export class ArticlesModule {}

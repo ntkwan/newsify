@@ -153,20 +153,27 @@ export class ArticlesService {
             throw new NotFoundException(`Article with URL ${url} not found`);
         }
 
-        // Get related articles using vector search
         const relatedArticles = await this.milvusService.searchSimilarArticles(
             article.dataValues.url,
-            top + 1, // Get one extra to exclude the original article
+            top,
         );
-        // Filter out the original article and transform the results
 
-        // Get full article details from the database
-        const articleIds = relatedArticles.map((related) => related.article_id);
-        //const articles = await this.articleRepository.findByIds(articleIds);
-        console.log(articleIds);
-        // Transform and return the articles
-        //return this.transformArticles(articles);
-        return [];
+        const articleUrls = relatedArticles.map((related) => related.url);
+        const articles = await this.articleRepository.findByUrls(articleUrls);
+        articles.map((article) => {
+            if (article.dataValues.url === url) {
+                article.dataValues.similarityScore = 0;
+            } else {
+                article.dataValues.similarityScore = relatedArticles.find(
+                    (related) => related.url === article.dataValues.url,
+                ).similarity_score;
+            }
+        });
+        articles.sort(
+            (a, b) =>
+                b.dataValues.similarityScore - a.dataValues.similarityScore,
+        );
+        return this.transformArticles(articles);
     }
 
     private async generateSummary(

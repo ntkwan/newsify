@@ -123,14 +123,6 @@ export class ArticleRepository {
         });
     }
 
-    async findByIds(ids: number[]): Promise<Article[]> {
-        return Article.findAll({
-            where: {
-                articleId: ids,
-            },
-        });
-    }
-
     async findByUrls(urls: string[]): Promise<Article[]> {
         return Article.findAll({
             where: {

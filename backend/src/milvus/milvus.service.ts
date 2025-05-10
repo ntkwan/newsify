@@ -50,22 +50,37 @@ export class MilvusService implements OnModuleInit {
                 collection_name: this.collectionName,
                 vector: [article.data[0].article_embed],
                 output_fields: ['article_id', 'url'],
-                limit: topK + 1, // Get one extra to exclude the original article
+                limit: topK * 2, // Get more results to account for duplicates
                 metric_type: 'COSINE',
                 params: { nprobe: 10 },
             });
-            console.log(searchResponse);
-            // Filter out the original article and map results
-            const newResults = searchResponse.results
-                .filter((result) => result.url !== url)
+
+            const normalizeUrl = (url: string) =>
+                url.replace(/\/index\.html$/, '');
+
+            const seenUrls = new Set<string>();
+            const normalizedOriginalUrl = normalizeUrl(url);
+
+            const uniqueResults = searchResponse.results
+                .filter((result) => {
+                    const normalizedUrl = normalizeUrl(result.url);
+                    if (
+                        normalizedUrl === normalizedOriginalUrl ||
+                        seenUrls.has(normalizedUrl)
+                    ) {
+                        return false;
+                    }
+                    seenUrls.add(normalizedUrl);
+                    return true;
+                })
                 .slice(0, topK)
                 .map((result) => ({
                     article_id: result.article_id,
                     url: result.url,
                     similarity_score: result.score,
                 }));
-            console.log(newResults);
-            return newResults;
+            console.log(uniqueResults);
+            return uniqueResults;
         } catch (error) {
             console.error('Error searching similar articles:', error);
             throw error;
