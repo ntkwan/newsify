@@ -128,33 +128,41 @@ export default function Pagination({
     return (
         <div className="flex items-center justify-center space-x-2 mt-8">
             {/* Previous Page Button */}
-            <Link
-                href={createPageURL(currentPage - 1)}
-                className={`p-2 rounded-md ${
-                    currentPage === 1
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'hover:bg-gray-100'
-                }`}
-                aria-disabled={currentPage === 1}
-            >
-                <ArrowLeftIcon className="h-5 w-5" />
-            </Link>
+            {currentPage === 1 ? (
+                <button
+                    className="p-2 rounded-md text-gray-400 cursor-not-allowed"
+                    disabled
+                >
+                    <ArrowLeftIcon className="h-5 w-5" />
+                </button>
+            ) : (
+                <Link
+                    href={createPageURL(currentPage - 1)}
+                    className="p-2 rounded-md hover:bg-gray-100"
+                >
+                    <ArrowLeftIcon className="h-5 w-5" />
+                </Link>
+            )}
 
             {/* Page Numbers */}
             {generatePageNumbers()}
 
             {/* Next Page Button */}
-            <Link
-                href={createPageURL(currentPage + 1)}
-                className={`p-2 rounded-md ${
-                    currentPage === totalPages
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'hover:bg-gray-100'
-                }`}
-                aria-disabled={currentPage === totalPages}
-            >
-                <ArrowRightIcon className="h-5 w-5" />
-            </Link>
+            {currentPage === totalPages ? (
+                <button
+                    className="p-2 rounded-md text-gray-400 cursor-not-allowed"
+                    disabled
+                >
+                    <ArrowRightIcon className="h-5 w-5" />
+                </button>
+            ) : (
+                <Link
+                    href={createPageURL(currentPage + 1)}
+                    className="p-2 rounded-md hover:bg-gray-100"
+                >
+                    <ArrowRightIcon className="h-5 w-5" />
+                </Link>
+            )}
         </div>
     );
 }
