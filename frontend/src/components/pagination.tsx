@@ -1,26 +1,56 @@
+/**
+ * Pagination Component
+ *
+ * A reusable pagination component that displays page numbers and navigation controls.
+ * Features:
+ * - Dynamic page number generation with ellipsis
+ * - Previous/Next navigation
+ * - Current page highlighting
+ * - Responsive design
+ *
+ * @component
+ * @param {Object} props - Component props
+ * @param {number} props.totalPages - Total number of pages
+ * @param {number} props.currentPage - Current active page
+ * @param {number} props.totalItems - Total number of items
+ */
+
 'use client';
 
-import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 
 interface PaginationProps {
-    currentPage: number;
     totalPages: number;
+    currentPage: number;
     totalItems: number;
 }
 
-export default function Pagination({ totalPages }: PaginationProps) {
+export default function Pagination({
+    totalPages,
+    currentPage,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    totalItems,
+}: PaginationProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const currentPage = Number(searchParams.get('page')) || 1;
 
+    /**
+     * Creates a URL for a specific page number while preserving other search parameters
+     * @param {number} pageNumber - The page number to navigate to
+     * @returns {string} The constructed URL with query parameters
+     */
     const createPageURL = (pageNumber: number | string) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set('page', pageNumber.toString());
         return `${pathname}?${params.toString()}`;
     };
 
+    /**
+     * Generates an array of page numbers to display
+     * @returns {JSX.Element[]} Array of JSX elements to display
+     */
     const generatePageNumbers = () => {
         const pages = [];
         const maxVisiblePages = 5;
@@ -97,6 +127,7 @@ export default function Pagination({ totalPages }: PaginationProps) {
 
     return (
         <div className="flex items-center justify-center space-x-2 mt-8">
+            {/* Previous Page Button */}
             <Link
                 href={createPageURL(currentPage - 1)}
                 className={`p-2 rounded-md ${
@@ -108,7 +139,11 @@ export default function Pagination({ totalPages }: PaginationProps) {
             >
                 <ArrowLeftIcon className="h-5 w-5" />
             </Link>
+
+            {/* Page Numbers */}
             {generatePageNumbers()}
+
+            {/* Next Page Button */}
             <Link
                 href={createPageURL(currentPage + 1)}
                 className={`p-2 rounded-md ${
