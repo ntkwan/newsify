@@ -79,28 +79,36 @@ export default function DailyPodcastsPage() {
                             <h2 className="text-2xl md:text-3xl font-bold text-[#01aa4f] mb-4">
                                 {currentPodcast.title}
                             </h2>
-                            <div className="text-sm md:text-base text-gray-500 mb-4">
-                                {new Date(
-                                    currentPodcast.publish_date,
-                                ).toLocaleDateString('en-US', {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                })}
+                            <div className="text-gray-500 mb-4">
+                                {(() => {
+                                    // Subtract 7 hours from the publish date
+                                    const date = new Date(currentPodcast.publish_date);
+                                    date.setHours(date.getHours() - 7);
+                                    
+                                    return date.toLocaleDateString('en-US', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    });
+                                })()}
                             </div>
                             <div className="flex flex-col md:flex-row gap-4 items-stretch min-h-[192px]">
                                 <div className="bg-[#01aa4f] text-white rounded-lg p-3 text-center flex flex-col justify-center">
                                     <div className="font-bold">Daily News</div>
-                                    <div className="text-lg md:text-xl font-bold">
-                                        {new Date(
-                                            currentPodcast.publish_date,
-                                        ).toLocaleTimeString('en-US', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
+                                    <div className="text-xl font-bold">
+                                        {(() => {
+                                            // Subtract 7 hours from the publish date
+                                            const date = new Date(currentPodcast.publish_date);
+                                            date.setHours(date.getHours() - 7);
+                                            
+                                            return date.toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            });
+                                        })()}
                                     </div>
                                 </div>
                                 {currentPodcast.links &&
