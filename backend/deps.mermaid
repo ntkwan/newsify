@@ -15,6 +15,7 @@ graph LR
   ArticlesModule-->ConfigHostModule
   ArticlesModule-->ConfigModule
   ArticlesModule-->MailerCoreModule
+  ArticlesModule-->MilvusModule
   ArticlesModule-->RedisCoreModule
   ArticlesModule-->SearchModule
   ArticlesModule-->SequelizeCoreModule
@@ -55,6 +56,11 @@ graph LR
   MailerModule-->MailerCoreModule
   MailerModule-->RedisCoreModule
   MailerModule-->SequelizeCoreModule
+  MilvusModule-->ConfigHostModule
+  MilvusModule-->ConfigModule
+  MilvusModule-->MailerCoreModule
+  MilvusModule-->RedisCoreModule
+  MilvusModule-->SequelizeCoreModule
   PassportModule-->ConfigHostModule
   PassportModule-->ConfigModule
   PassportModule-->MailerCoreModule
