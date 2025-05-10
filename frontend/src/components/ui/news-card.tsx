@@ -31,7 +31,7 @@ export default function NewsCard({
                 </div>
                 <Badge
                     variant="outline"
-                    className="mb-2 text-xs font-normal bg-gray-50 text-gray-500 hover:bg-gray-50"
+                    className="mb-2 text-xs font-normal bg-primary text-white hover:bg-gray-50"
                 >
                     {category}
                 </Badge>

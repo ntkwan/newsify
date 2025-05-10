@@ -63,7 +63,7 @@ export default function CategorySection() {
         };
 
         fetchCategoryArticles();
-    }, []);
+    }, [categories]);
 
     if (loading) {
         return <div>Loading...</div>;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ const highlightText = (text: string) => {
 
 export default function SearchPage() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const [articles, setArticles] = useState<Article[]>([]);
     const [total, setTotal] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -77,7 +78,7 @@ export default function SearchPage() {
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-2xl font-bold mb-6">
-                Kết quả tìm kiếm cho &ldquo;{query}&rdquo; ({total} kết quả)
+                Search results for &ldquo;{query}&rdquo; ({total} results)
             </h1>
             {isLoading ? (
                 <div className="grid gap-6">
@@ -105,7 +106,12 @@ export default function SearchPage() {
                         {articles.map((article) => (
                             <div
                                 key={article.trendingId}
-                                className="flex gap-4 p-4 border rounded-lg hover:bg-secondary/50 transition-colors"
+                                className="flex gap-4 p-4 border rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
+                                onClick={() =>
+                                    router.push(
+                                        `/articles/${article.trendingId}`,
+                                    )
+                                }
                             >
                                 <div className="relative w-48 h-32 flex-shrink-0">
                                     <Image
