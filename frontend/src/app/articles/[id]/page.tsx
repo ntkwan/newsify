@@ -48,7 +48,7 @@ export default function ArticlePage() {
     if (!article) {
         return (
             <div className="max-w-4xl mx-auto px-4 py-8">
-                <div className="relative mb-8 p-6 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 shadow-sm">
+                <div className="relative mb-8 p-6 rounded-lg bg-green-100 border border-green-200 shadow-sm">
                     <div className="absolute -top-3 left-6 bg-primary text-white px-4 py-1 rounded-md text-sm font-medium">
                         Summary
                     </div>
@@ -100,7 +100,7 @@ export default function ArticlePage() {
                     {loadingSummary ? (
                         <div className="h-6 w-2/3 bg-gray-200 rounded animate-pulse mb-6" />
                     ) : (
-                        <div className="relative mb-8 p-6 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 shadow-sm hover:shadow-md transition-all duration-300">
+                        <div className="relative mb-8 p-6 rounded-lg bg-green-100 border border-green-100 shadow-sm hover:shadow-md transition-all duration-300">
                             <div className="absolute -top-3 left-6 bg-primary text-white px-4 py-1 rounded-md text-sm font-medium">
                                 Summary
                             </div>

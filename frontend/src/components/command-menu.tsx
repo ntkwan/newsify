@@ -90,6 +90,15 @@ export function CommandMenu() {
                                 placeholder="Searching for ..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && search.trim()) {
+                                        e.preventDefault();
+                                        router.push(
+                                            `/articles/search?q=${encodeURIComponent(search.trim())}`,
+                                        );
+                                        setOpen(false);
+                                    }
+                                }}
                             />
                         </div>
                     </div>

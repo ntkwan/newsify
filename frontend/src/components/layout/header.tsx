@@ -11,7 +11,7 @@ import { Podcast } from '@/types/podcast';
 
 const Header: React.FC = () => {
     const pathname = usePathname();
-    const [podcasts, setPodcasts] = useState<Podcast[]>([]);
+    const [, setPodcasts] = useState<Podcast[]>([]);
     const today = new Date();
     const formattedDate = today.toLocaleDateString('en-US', {
         weekday: 'long',
@@ -73,7 +73,7 @@ const Header: React.FC = () => {
                             >
                                 News
                                 <span
-                                    className={`absolute bottom-0 left-0 w-full h-0.5 bg-[#01aa4f] transition-all duration-300 ${pathname === '/articles' ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`}
+                                    className={`absolute bottom-0 left-0 w-full h-0.5 bg-[#01aa4f] transition-all duration-300 ${pathname.startsWith('/articles') ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`}
                                 ></span>
                             </Link>
                             <Link
@@ -110,7 +110,7 @@ const Header: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <CommandMenu podcasts={podcasts} />
+            <CommandMenu />
         </header>
     );
 };
