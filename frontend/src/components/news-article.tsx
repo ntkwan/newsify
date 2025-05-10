@@ -60,7 +60,11 @@ export default function NewsArticle({ article }: NewsArticleProps) {
                         {article.title}
                     </h3>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{article.main_category}</span>
+                        <span>
+                            {article.main_category === 'Other'
+                                ? 'Social'
+                                : article.main_category}
+                        </span>
                         <span>•</span>
                         <span>{formattedDate}</span>
                     </div>

@@ -37,7 +37,7 @@ const CATEGORIES = [
     'Hobbies and Leisure',
     'Jobs and Education',
     'Law and Government',
-    'Other',
+    'Social',
     'Pets and Animal',
     'Politics',
     'Science',
@@ -73,7 +73,7 @@ export default function DailyNewsPage() {
                     ARTICLES_PER_PAGE,
                     search,
                     date,
-                    category,
+                    category === 'Social' ? 'Other' : category,
                 );
                 setArticles(response.articles);
                 setTotal(response.total);
