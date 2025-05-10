@@ -21,7 +21,7 @@ interface Article {
     };
 }
 
-// Hàm để highlight từ khóa tìm kiếm
+// Highlight the keywords
 const highlightText = (text: string) => {
     return text.replace(
         /<strong>(.*?)<\/strong>/g,
@@ -131,7 +131,10 @@ export default function SearchPage() {
                                         }}
                                     />
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Badge variant="secondary">
+                                        <Badge
+                                            className="text-white"
+                                            variant="default"
+                                        >
                                             {article.mainCategory}
                                         </Badge>
                                         <span className="text-sm text-muted-foreground">
