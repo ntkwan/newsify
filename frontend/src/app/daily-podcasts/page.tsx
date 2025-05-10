@@ -5,6 +5,7 @@ import { PodcastPlayer } from '@/components/podcast-player';
 import { Podcast } from '@/types/podcast';
 import Image from 'next/image';
 import { PodcastGrid } from '@/components/podcast-grid';
+import Loading from './loading';
 
 export default function DailyPodcastsPage() {
     const [podcasts, setPodcasts] = useState<Podcast[]>([]);
@@ -46,11 +47,7 @@ export default function DailyPodcastsPage() {
     }, []);
 
     if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                Loading...
-            </div>
-        );
+        return <Loading />;
     }
 
     if (error) {
@@ -68,9 +65,9 @@ export default function DailyPodcastsPage() {
             </h1>
 
             {currentPodcast && (
-                <div className="bg-white rounded-lg shadow-lg p-8">
-                    <div className="flex gap-8 items-center">
-                        <div className="relative w-48 h-48 flex-shrink-0">
+                <div className="bg-white rounded-lg shadow-lg p-4 md:p-8">
+                    <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center">
+                        <div className="relative w-32 h-32 md:w-48 md:h-48 flex-shrink-0">
                             <Image
                                 src="/images/placeholders/podcast-placeholder.png"
                                 alt={currentPodcast.title}
@@ -78,8 +75,8 @@ export default function DailyPodcastsPage() {
                                 className="object-cover rounded-lg"
                             />
                         </div>
-                        <div className="flex-1">
-                            <h2 className="text-3xl font-bold text-[#01aa4f] mb-4">
+                        <div className="flex-1 w-full">
+                            <h2 className="text-2xl md:text-3xl font-bold text-[#01aa4f] mb-4">
                                 {currentPodcast.title}
                             </h2>
                             <div className="text-gray-500 mb-4">
@@ -98,7 +95,7 @@ export default function DailyPodcastsPage() {
                                     });
                                 })()}
                             </div>
-                            <div className="flex gap-4 items-stretch h-[192px]">
+                            <div className="flex flex-col md:flex-row gap-4 items-stretch min-h-[192px]">
                                 <div className="bg-[#01aa4f] text-white rounded-lg p-3 text-center flex flex-col justify-center">
                                     <div className="font-bold">Daily News</div>
                                     <div className="text-xl font-bold">
@@ -134,7 +131,7 @@ export default function DailyPodcastsPage() {
                                                     Sources
                                                 </span>
                                             </div>
-                                            <div className="flex flex-wrap gap-2 overflow-y-auto">
+                                            <div className="flex flex-wrap gap-2 overflow-y-auto max-h-[120px] md:max-h-[160px]">
                                                 {currentPodcast.links.map(
                                                     (link, index) => (
                                                         <a
@@ -142,11 +139,11 @@ export default function DailyPodcastsPage() {
                                                             href={link}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 text-xs text-[#01aa4f] rounded-full transition-colors duration-200"
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 text-xs text-[#01aa4f] rounded-full transition-colors duration-200 break-all"
                                                         >
                                                             <svg
                                                                 xmlns="http://www.w3.org/2000/svg"
-                                                                className="h-3 w-3"
+                                                                className="h-3 w-3 flex-shrink-0"
                                                                 viewBox="0 0 20 20"
                                                                 fill="currentColor"
                                                             >
@@ -156,7 +153,9 @@ export default function DailyPodcastsPage() {
                                                                     clipRule="evenodd"
                                                                 />
                                                             </svg>
-                                                            {link}
+                                                            <span className="truncate max-w-[200px] md:max-w-[300px]">
+                                                                {link}
+                                                            </span>
                                                         </a>
                                                     ),
                                                 )}
@@ -166,7 +165,7 @@ export default function DailyPodcastsPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="mt-8">
+                    <div className="mt-4 md:mt-8">
                         <PodcastPlayer podcast={currentPodcast} />
                     </div>
                 </div>

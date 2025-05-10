@@ -58,11 +58,11 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                             />
                         </svg>
                     </button>
-                    <div className="flex gap-6 overflow-hidden p-10">
+                    <div className="flex gap-6 overflow-hidden p-10 w-[1100px] justify-start">
                         {visiblePodcasts.map((podcast) => (
                             <div
                                 key={podcast.podcast_id}
-                                className={`flex-none w-[calc(25%-1.125rem)] bg-gradient-to-br from-gray-100 to-gray-150 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ${
+                                className={`w-[240px] bg-gradient-to-br flex-shrink-0 from-gray-100 to-gray-150 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer ${
                                     currentPodcastId === podcast.podcast_id
                                         ? 'ring-4 ring-[#01aa4f]'
                                         : ''

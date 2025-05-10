@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy import inspect, func, select
 from sqlalchemy.orm import Session
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime
 from .database import trending_articles_table, articles_table, get_supabase_session, get_digitalocean_session, digitalocean_engine, metadata
 from .elasticsearch_service import ElasticsearchService
 
@@ -195,9 +195,7 @@ class TrendingService:
             import uuid
             trending_id = str(uuid.uuid4())
             
-            with self._get_digitalocean_session() as session:
-                from sqlalchemy.sql import text
-                
+            with self._get_digitalocean_session() as session:                
                 stmt = trending_articles_table.insert().values(
                     trending_id=trending_id,
                     article_id=article_id,
@@ -211,10 +209,10 @@ class TrendingService:
                     categories=categories,
                     main_category=main_category,
                     content=content,
-                    analyzed_date=func.now() # Using SQL function for current timestamp
+                    analyzed_date=func.now()
                 )
                 
-                result = session.execute(stmt)
+                session.execute(stmt)
                 session.commit()
                 
                 return trending_id

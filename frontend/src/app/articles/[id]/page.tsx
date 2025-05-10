@@ -47,16 +47,26 @@ export default function ArticlePage() {
     // If there is no article yet, show a global loading indicator.
     if (!article) {
         return (
-            <div className="max-w-4xl mx-auto px-4 py-8 animate-pulse">
-                <div className="h-10 bg-gray-200 rounded w-2/3 mb-4" />
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="h-4 w-24 bg-gray-200 rounded" />
-                    <div className="h-4 w-4 bg-gray-200 rounded-full" />
-                    <div className="h-4 w-32 bg-gray-200 rounded" />
+            <div className="max-w-4xl mx-auto px-4 py-8">
+                <div className="relative mb-8 p-6 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 shadow-sm">
+                    <div className="absolute -top-3 left-6 bg-primary text-white px-4 py-1 rounded-md text-sm font-medium">
+                        Summary
+                    </div>
+                    <div className="flex items-center space-x-1">
+                        <span className="text-lg text-primary font-bold">
+                            Summarizing the article
+                        </span>
+                        <span className="animate-bounce delay-0 text-primary text-lg font-bold">
+                            .
+                        </span>
+                        <span className="animate-bounce delay-150 text-primary text-lg font-bold">
+                            .
+                        </span>
+                        <span className="animate-bounce delay-300 text-primary text-lg font-bold">
+                            .
+                        </span>
+                    </div>
                 </div>
-                <div className="w-full h-64 bg-gray-200 rounded mb-6" />
-                <div className="h-6 w-1/2 bg-gray-200 rounded mb-4" />
-                <div className="h-10 w-40 bg-gray-200 rounded" />
             </div>
         );
     }
