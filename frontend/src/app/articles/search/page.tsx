@@ -146,7 +146,7 @@ export default function SearchPage() {
                                         <span className="text-sm text-muted-foreground">
                                             {new Date(
                                                 article.publishDate,
-                                            ).toLocaleDateString('vi-VN', {
+                                            ).toLocaleDateString('en-US', {
                                                 day: 'numeric',
                                                 month: 'long',
                                                 year: 'numeric',
