@@ -43,7 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer('multi-qa-mpnet-base-cos-v1')
 
 class TrendingKeyword(BaseModel):
     query: str
@@ -93,7 +93,7 @@ class ArticleBatchRequest(BaseModel):
 DATA_UPDATES_CHANNEL = "data-updates"
 
 def get_embedding(text: str):
-    return model.encode(text)
+    return model.encode(text, convert_to_numpy=True)
 
 def get_trending_keywords(country_code: str = "US", limit: int = 10):
     api_key = os.getenv("SERPAPI_API_KEY")
