@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Podcast } from '@/types/podcast';
-
-interface RawPodcast extends Omit<Podcast, 'timestamp_script'> {
-    timestamp_script: string;
-}
 
 export async function GET(request: NextRequest) {
     try {
@@ -33,14 +28,6 @@ export async function GET(request: NextRequest) {
         }
 
         const data = await response.json();
-
-        // Parse timestamp_script từ string JSON thành array
-        if (data.podcasts && Array.isArray(data.podcasts)) {
-            data.podcasts = data.podcasts.map((podcast: RawPodcast) => ({
-                ...podcast,
-                timestamp_script: JSON.parse(podcast.timestamp_script),
-            }));
-        }
 
         return NextResponse.json(data);
     } catch (err) {

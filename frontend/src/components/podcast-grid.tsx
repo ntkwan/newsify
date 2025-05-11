@@ -146,10 +146,14 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                                 />
                                             </svg>
                                             {Math.floor(
-                                                podcast.length_seconds / 60,
+                                                (podcast.length_seconds
+                                                    ?.female_voice || 0) / 60,
                                             )}
                                             :
-                                            {(podcast.length_seconds % 60)
+                                            {(
+                                                (podcast.length_seconds
+                                                    ?.female_voice || 0) % 60
+                                            )
                                                 .toString()
                                                 .padStart(2, '0')}{' '}
                                             min

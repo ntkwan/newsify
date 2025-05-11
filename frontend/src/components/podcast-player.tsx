@@ -41,6 +41,10 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+    const currentTimestampScript =
+        podcast.timestamp_script?.[selectedVoice] || [];
+    const currentLengthSeconds = podcast.length_seconds?.[selectedVoice] || 0;
+
     useEffect(() => {
         if (audioRef.current) {
             const currentPosition = audioRef.current.currentTime;
@@ -49,7 +53,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             if (isPlaying) {
                 setIsPlaying(false);
             }
-            audioRef.current.src = podcast.audio_url[selectedVoice];
+            audioRef.current.src = podcast.audio_url?.[selectedVoice] || '';
             audioRef.current.load();
             if (isPlaying) {
                 audioRef.current.addEventListener(
@@ -134,7 +138,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             const currentTime = audioRef.current.currentTime;
             setCurrentTime(currentTime);
 
-            const activeIndex = podcast.timestamp_script.findIndex(
+            const activeIndex = currentTimestampScript.findIndex(
                 (item) =>
                     currentTime >= item.startTime && currentTime < item.endTime,
             );
@@ -170,6 +174,9 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     };
 
     const formatTime = (seconds: number) => {
+        if (typeof seconds !== 'number' || isNaN(seconds)) {
+            return '0:00';
+        }
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = Math.floor(seconds % 60);
         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -179,7 +186,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
         <div className="space-y-4">
             <audio
                 ref={audioRef}
-                src={podcast.audio_url[selectedVoice]}
+                src={podcast.audio_url[selectedVoice] || ''}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
             />
@@ -187,7 +194,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             <div className="flex justify-between items-center">
                 <div className="text-sm text-gray-500">
                     {formatTime(currentTime)} /{' '}
-                    {formatTime(podcast.length_seconds)}
+                    {formatTime(currentLengthSeconds)}
                 </div>
 
                 <DropdownMenu>
@@ -240,7 +247,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             <div className="relative">
                 <Slider
                     value={[currentTime]}
-                    max={podcast.length_seconds}
+                    max={currentLengthSeconds || 1}
                     step={1}
                     onValueChange={handleSeek}
                     className="h-1 hover:cursor-pointer"
@@ -323,42 +330,45 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
 
             <div className="mt-4 space-y-2 max-h-[300px] overflow-y-auto scrollbar-hide">
                 <AnimatePresence>
-                    {podcast.timestamp_script.map((item, index) => (
-                        <motion.div
-                            key={index}
-                            ref={(el) => {
-                                subtitleRefs.current[index] = el;
-                            }}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{
-                                opacity: 1,
-                                y: 0,
-                                backgroundColor:
+                    {Array.isArray(currentTimestampScript) &&
+                        currentTimestampScript.map((item, index) => (
+                            <motion.div
+                                key={index}
+                                ref={(el) => {
+                                    subtitleRefs.current[index] = el;
+                                }}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                    backgroundColor:
+                                        activeSubtitleIndex === index
+                                            ? 'rgba(1, 170, 79, 0.1)'
+                                            : 'transparent',
+                                }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.2 }}
+                                className={`p-3 rounded-lg cursor-pointer hover:bg-gray-200 hover:cursor-pointer transition-colors ${
                                     activeSubtitleIndex === index
-                                        ? 'rgba(1, 170, 79, 0.1)'
-                                        : 'transparent',
-                            }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.2 }}
-                            className={`p-3 rounded-lg cursor-pointer hover:bg-gray-200 hover:cursor-pointer transition-colors ${
-                                activeSubtitleIndex === index
-                                    ? 'border-l-4 border-[#01aa4f]'
-                                    : ''
-                            }`}
-                            onClick={() => handleSubtitleClick(item.startTime)}
-                        >
-                            <div className="flex items-start space-x-2">
-                                <span className="text-xs text-gray-500 min-w-[50px]">
-                                    {formatTime(item.startTime)}
-                                </span>
-                                <span
-                                    className={`${activeSubtitleIndex === index ? 'font-medium' : ''}`}
-                                >
-                                    {item.text}
-                                </span>
-                            </div>
-                        </motion.div>
-                    ))}
+                                        ? 'border-l-4 border-[#01aa4f]'
+                                        : ''
+                                }`}
+                                onClick={() =>
+                                    handleSubtitleClick(item.startTime)
+                                }
+                            >
+                                <div className="flex items-start space-x-2">
+                                    <span className="text-xs text-gray-500 min-w-[50px]">
+                                        {formatTime(item.startTime)}
+                                    </span>
+                                    <span
+                                        className={`${activeSubtitleIndex === index ? 'font-medium' : ''}`}
+                                    >
+                                        {item.text}
+                                    </span>
+                                </div>
+                            </motion.div>
+                        ))}
                 </AnimatePresence>
             </div>
         </div>
