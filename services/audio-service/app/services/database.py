@@ -52,10 +52,10 @@ podcasts_table = Table(
     Column('podcast_id', UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     Column('publish_date', DateTime(timezone=True)),
     Column('title', Text, nullable=False),
-    Column('script', Text),
-    Column('timestamp_script', JSONB),
+    Column('script', Text, nullable=False),
+    Column('timestamp_script', JSONB, nullable=False),
     Column('audio_url', JSONB, nullable=False, comment='URLs for different voices (male_voice, female_voice)'),
-    Column('length_seconds', Integer, nullable=True, comment='Length of the podcast in seconds'),
+    Column('length_seconds', ARRAY(Integer), nullable=True, comment='Length of the podcast in seconds'),
     Column('links', ARRAY(Text), nullable=True, comment='URLs of the original articles'),
     schema='public'
 )

@@ -381,14 +381,27 @@ Here's the transcript:
         try:
             print("Audio files generated, preparing for upload...")
             
-            transcript_data = {}
+            # Generate transcripts for both male and female voices
+            transcript_data = {
+                "female_voice": {},
+                "male_voice": {}
+            }
             
+            # Transcribe female voice
             try:
-                transcript_data = await self.generate_transcript_with_timestamps(audio_files["female_voice"])
-                print("Generated transcript with timestamps from Gemini")
+                transcript_data["female_voice"] = await self.generate_transcript_with_timestamps(audio_files["female_voice"])
+                print("Generated female voice transcript with timestamps from Gemini")
             except Exception as transcript_error:
-                print(f"Error generating transcript with Gemini, using estimated timestamps: {transcript_error}")
-                transcript_data = estimated_transcript
+                print(f"Error generating female voice transcript with Gemini, using estimated timestamps: {transcript_error}")
+                transcript_data["female_voice"] = estimated_transcript
+            
+            # Transcribe male voice
+            try:
+                transcript_data["male_voice"] = await self.generate_transcript_with_timestamps(audio_files["male_voice"])
+                print("Generated male voice transcript with timestamps from Gemini")
+            except Exception as transcript_error:
+                print(f"Error generating male voice transcript with Gemini, using estimated timestamps: {transcript_error}")
+                transcript_data["male_voice"] = estimated_transcript
             
             # Upload both audio files
             female_filename = f"female-newsify-podcast-{datetime.now().strftime('%Y-%m-%d')}.mp3"
@@ -421,13 +434,29 @@ Here's the transcript:
             try:
                 await self._ensure_table_exists(db)
                 
-                timestamped_script_json = json.dumps([
-                    {
-                        "startTime": line["startTime"],
-                        "endTime": line["endTime"],
-                        "text": line["text"]
-                    } for line in transcript_data["timestampedTranscript"]
-                ])
+                # Convert timestamp scripts to JSONB
+                timestamp_script_json = {
+                    "female_voice": json.dumps([
+                        {
+                            "startTime": line["startTime"],
+                            "endTime": line["endTime"],
+                            "text": line["text"]
+                        } for line in transcript_data["female_voice"]["timestampedTranscript"]
+                    ]),
+                    "male_voice": json.dumps([
+                        {
+                            "startTime": line["startTime"],
+                            "endTime": line["endTime"],
+                            "text": line["text"]
+                        } for line in transcript_data["male_voice"]["timestampedTranscript"]
+                    ])
+                }
+                
+                # Calculate lengths for both audios
+                podcast_length = {
+                    "female_voice": self.calculate_podcast_length(transcript_data["female_voice"]["timestampedTranscript"]),
+                    "male_voice": self.calculate_podcast_length(transcript_data["male_voice"]["timestampedTranscript"])
+                }
                 
                 newest_date = None
                 
@@ -449,13 +478,11 @@ Here's the transcript:
                 
                 podcast_title = await self.generate_podcast_title(articles, newest_date)
                 
-                podcast_length = self.calculate_podcast_length(transcript_data["timestampedTranscript"])
-                
                 stmt = podcasts_table.insert().values(
                     publish_date=newest_date,
                     title=podcast_title,
-                    script=transcript_data["fullTranscript"],
-                    timestamp_script=timestamped_script_json,
+                    script=podcast_script,
+                    timestamp_script=timestamp_script_json,
                     audio_url=uploaded_urls,  # Now storing the JSON with both URLs
                     length_seconds=podcast_length,
                     links=[article.url for article in articles if hasattr(article, 'url') and article.url],
@@ -474,8 +501,8 @@ Here's the transcript:
             return {
                 "url": uploaded_urls,  # Return both URLs in JSON format
                 "title": podcast_title,
-                "transcript": transcript_data["fullTranscript"],
-                "timestampedTranscript": transcript_data["timestampedTranscript"],
+                "script": podcast_script,
+                "timestampedTranscript": timestamp_script_json,
                 "length_seconds": podcast_length,
                 "links": [article.url for article in articles if hasattr(article, 'url') and article.url],
             }
