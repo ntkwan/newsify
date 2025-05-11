@@ -8,10 +8,19 @@ import {
     VolumeX,
     FastForward,
     Rewind,
+    Mars,
+    Venus,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Podcast } from '@/types/podcast';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 interface PodcastPlayerProps {
     podcast: Podcast;
@@ -26,8 +35,25 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     const [activeSubtitleIndex, setActiveSubtitleIndex] = useState<
         number | null
     >(null);
+    const [selectedVoice, setSelectedVoice] = useState<'male_voice' | 'female_voice'>('female_voice');
     const audioRef = useRef<HTMLAudioElement>(null);
     const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    useEffect(() => {
+        if (audioRef.current) {
+            const wasPlaying = !audioRef.current.paused;
+            const currentPosition = audioRef.current.currentTime;
+            
+            audioRef.current.src = podcast.audio_url[selectedVoice];
+            
+            audioRef.current.load();
+            
+            audioRef.current.currentTime = currentPosition;
+            if (wasPlaying) {
+                audioRef.current.play();
+            }
+        }
+    }, [selectedVoice, podcast.audio_url]);
 
     useEffect(() => {
         if (audioRef.current) {
@@ -102,7 +128,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
         <div className="space-y-4">
             <audio
                 ref={audioRef}
-                src={podcast.audio_url}
+                src={podcast.audio_url[selectedVoice]}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
             />
@@ -112,6 +138,44 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
                     {formatTime(currentTime)} /{' '}
                     {formatTime(podcast.length_seconds)}
                 </div>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-2 bg-white hover:bg-gray-100"
+                        >
+                            {selectedVoice === 'male_voice' ? (
+                                <>
+                                    <Mars className="h-4 w-4 text-blue-600" />
+                                    <span>Male voice</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Venus className="h-4 w-4 text-pink-600" />
+                                    <span>Female voice</span>
+                                </>
+                            )}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top">
+                        <DropdownMenuItem 
+                            onClick={() => setSelectedVoice('male_voice')}
+                            className={selectedVoice === 'male_voice' ? 'bg-gray-100' : ''}
+                        >
+                            <Mars className="h-4 w-4 mr-2 text-blue-600" />
+                            Male voice
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                            onClick={() => setSelectedVoice('female_voice')}
+                            className={selectedVoice === 'female_voice' ? 'bg-gray-100' : ''}
+                        >
+                            <Venus className="h-4 w-4 mr-2 text-pink-600" />
+                            Female voice
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <div className="relative">
