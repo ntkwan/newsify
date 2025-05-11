@@ -35,7 +35,9 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     const [activeSubtitleIndex, setActiveSubtitleIndex] = useState<
         number | null
     >(null);
-    const [selectedVoice, setSelectedVoice] = useState<'male_voice' | 'female_voice'>('female_voice');
+    const [selectedVoice, setSelectedVoice] = useState<
+        'male_voice' | 'female_voice'
+    >('female_voice');
     const audioRef = useRef<HTMLAudioElement>(null);
     const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -43,11 +45,11 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
         if (audioRef.current) {
             const wasPlaying = !audioRef.current.paused;
             const currentPosition = audioRef.current.currentTime;
-            
+
             audioRef.current.src = podcast.audio_url[selectedVoice];
-            
+
             audioRef.current.load();
-            
+
             audioRef.current.currentTime = currentPosition;
             if (wasPlaying) {
                 audioRef.current.play();
@@ -141,9 +143,9 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             className="gap-2 bg-white hover:bg-gray-100"
                         >
                             {selectedVoice === 'male_voice' ? (
@@ -160,16 +162,24 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top">
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                             onClick={() => setSelectedVoice('male_voice')}
-                            className={selectedVoice === 'male_voice' ? 'bg-gray-100' : ''}
+                            className={
+                                selectedVoice === 'male_voice'
+                                    ? 'bg-gray-100'
+                                    : ''
+                            }
                         >
                             <Mars className="h-4 w-4 mr-2 text-blue-600" />
                             Male voice
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                             onClick={() => setSelectedVoice('female_voice')}
-                            className={selectedVoice === 'female_voice' ? 'bg-gray-100' : ''}
+                            className={
+                                selectedVoice === 'female_voice'
+                                    ? 'bg-gray-100'
+                                    : ''
+                            }
                         >
                             <Venus className="h-4 w-4 mr-2 text-pink-600" />
                             Female voice

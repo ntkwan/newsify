@@ -82,9 +82,11 @@ export default function DailyPodcastsPage() {
                             <div className="text-gray-500 mb-4">
                                 {(() => {
                                     // Subtract 7 hours from the publish date
-                                    const date = new Date(currentPodcast.publish_date);
+                                    const date = new Date(
+                                        currentPodcast.publish_date,
+                                    );
                                     date.setHours(date.getHours() - 7);
-                                    
+
                                     return date.toLocaleDateString('en-US', {
                                         weekday: 'long',
                                         year: 'numeric',
@@ -101,13 +103,18 @@ export default function DailyPodcastsPage() {
                                     <div className="text-xl font-bold">
                                         {(() => {
                                             // Subtract 7 hours from the publish date
-                                            const date = new Date(currentPodcast.publish_date);
+                                            const date = new Date(
+                                                currentPodcast.publish_date,
+                                            );
                                             date.setHours(date.getHours() - 7);
-                                            
-                                            return date.toLocaleTimeString('en-US', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            });
+
+                                            return date.toLocaleTimeString(
+                                                'en-US',
+                                                {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                },
+                                            );
                                         })()}
                                     </div>
                                 </div>
