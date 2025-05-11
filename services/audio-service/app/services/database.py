@@ -55,7 +55,7 @@ podcasts_table = Table(
     Column('script', Text, nullable=False),
     Column('timestamp_script', JSONB, nullable=False),
     Column('audio_url', JSONB, nullable=False, comment='URLs for different voices (male_voice, female_voice)'),
-    Column('length_seconds', ARRAY(Integer), nullable=True, comment='Length of the podcast in seconds'),
+    Column('length_seconds', JSONB, nullable=True, comment='Length of the podcast in seconds for each voice type'),
     Column('links', ARRAY(Text), nullable=True, comment='URLs of the original articles'),
     schema='public'
 )

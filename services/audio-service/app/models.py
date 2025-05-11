@@ -28,11 +28,20 @@ class TranscriptLine(BaseModel):
 
 class PodcastResponse(BaseModel):
     """Response model for podcast generation."""
-    url: str
+    url: Dict[str, str] = Field(
+        ..., 
+        description="URLs for different voices with voice types as keys (e.g., 'male_voice', 'female_voice')"
+    )
     title: str
-    transcript: str
-    timestampedTranscript: List[Dict[str, Any]]
-    length_seconds: Optional[int] = None
+    script: str
+    timestampedTranscript: Dict[str, List[Dict[str, Any]]] = Field(
+        ..., 
+        description="Timestamped transcript for each voice type with voice types as keys"
+    )
+    length_seconds: Optional[Dict[str, int]] = Field(
+        None, 
+        description="Length in seconds for each voice type with voice types as keys"
+    )
     links: Optional[List[str]] = None
 
 
