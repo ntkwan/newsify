@@ -107,12 +107,13 @@ class PodcastService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error summarizing article: {str(e)}")
     
-    async def text_to_speech(self, text: str) -> str:
+    async def text_to_speech(self, text: str, voice: str = "alloy") -> str:
         """
         Convert text to speech using OpenAI's TTS API.
         
         Args:
             text: The text to convert to speech
+            voice: The voice to use (default: "alloy" for female, "echo" for male)
             
         Returns:
             Path to the temporary audio file
@@ -120,7 +121,7 @@ class PodcastService:
         try:
             response = self.openai_client.audio.speech.create(
                 model=self.openai_tts_model,
-                voice="alloy",
+                voice=voice,
                 input=text,
                 speed=1.0
             )
@@ -134,6 +135,24 @@ class PodcastService:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error converting text to speech: {str(e)}")
+    
+    async def generate_dual_voice_podcasts(self, podcast_script: str) -> dict:
+        """
+        Generate podcasts with both male and female voices.
+        
+        Args:
+            podcast_script: The text content for the podcast
+            
+        Returns:
+            Dictionary with paths to both audio files
+        """
+        female_audio_path = await self.text_to_speech(podcast_script, voice="alloy")
+        male_audio_path = await self.text_to_speech(podcast_script, voice="echo")
+        
+        return {
+            "female_voice": female_audio_path,
+            "male_voice": male_audio_path
+        }
     
     async def generate_transcript_with_timestamps(self, audio_file_path: str) -> Dict[str, Any]:
         """
@@ -353,36 +372,51 @@ Here's the transcript:
         podcast_script = ' '.join([section.text for section in script_sections])
         
         print("Generated podcast script:", podcast_script)
-        print("Converting to speech...")
+        print("Converting to speech with both male and female voices...")
         
         estimated_transcript = self.create_estimated_transcript_timestamps(script_sections)
         
-        audio_file_path = await self.text_to_speech(podcast_script)
+        audio_files = await self.generate_dual_voice_podcasts(podcast_script)
         
         try:
-            print("Audio file generated, preparing for upload...")
+            print("Audio files generated, preparing for upload...")
             
             transcript_data = {}
             
             try:
-                transcript_data = await self.generate_transcript_with_timestamps(audio_file_path)
+                transcript_data = await self.generate_transcript_with_timestamps(audio_files["female_voice"])
                 print("Generated transcript with timestamps from Gemini")
             except Exception as transcript_error:
                 print(f"Error generating transcript with Gemini, using estimated timestamps: {transcript_error}")
                 transcript_data = estimated_transcript
             
-            with open(audio_file_path, "rb") as f:
-                file_data = f.read()
+            # Upload both audio files
+            female_filename = f"female-newsify-podcast-{datetime.now().strftime('%Y-%m-%d')}.mp3"
+            male_filename = f"male-newsify-podcast-{datetime.now().strftime('%Y-%m-%d')}.mp3"
             
-            filename = f"newsify-podcast-{datetime.now().strftime('%Y-%m-%d')}.mp3"
+            uploaded_urls = {}
             
-            uploaded_url = await upload_service.upload_file(
-                file_data,
-                filename,
+            # Upload female voice
+            with open(audio_files["female_voice"], "rb") as f:
+                female_data = f.read()
+                
+            uploaded_urls["female_voice"] = await upload_service.upload_file(
+                female_data,
+                female_filename,
                 "podcasts"
             )
             
-            print("Podcast uploaded successfully to:", uploaded_url)
+            # Upload male voice
+            with open(audio_files["male_voice"], "rb") as f:
+                male_data = f.read()
+                
+            uploaded_urls["male_voice"] = await upload_service.upload_file(
+                male_data,
+                male_filename,
+                "podcasts"
+            )
+            
+            print("Podcasts uploaded successfully:", uploaded_urls)
             
             try:
                 await self._ensure_table_exists(db)
@@ -422,7 +456,7 @@ Here's the transcript:
                     title=podcast_title,
                     script=transcript_data["fullTranscript"],
                     timestamp_script=timestamped_script_json,
-                    audio_url=uploaded_url,
+                    audio_url=uploaded_urls,  # Now storing the JSON with both URLs
                     length_seconds=podcast_length,
                     links=[article.url for article in articles if hasattr(article, 'url') and article.url],
                 )
@@ -433,10 +467,12 @@ Here's the transcript:
             except Exception as db_error:
                 print(f"Error saving podcast to database: {str(db_error)}")
             
-            os.unlink(audio_file_path)
+            # Cleanup temp files
+            os.unlink(audio_files["female_voice"])
+            os.unlink(audio_files["male_voice"])
             
             return {
-                "url": uploaded_url,
+                "url": uploaded_urls,  # Return both URLs in JSON format
                 "title": podcast_title,
                 "transcript": transcript_data["fullTranscript"],
                 "timestampedTranscript": transcript_data["timestampedTranscript"],
@@ -445,8 +481,10 @@ Here's the transcript:
             }
             
         except Exception as e:
+            # Cleanup temp files
             try:
-                os.unlink(audio_file_path)
+                os.unlink(audio_files["female_voice"])
+                os.unlink(audio_files["male_voice"])
             except:
                 pass
                 
