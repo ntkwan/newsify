@@ -43,16 +43,66 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
 
     useEffect(() => {
         if (audioRef.current) {
-            const wasPlaying = !audioRef.current.paused;
             const currentPosition = audioRef.current.currentTime;
 
+            audioRef.current.pause();
+            if (isPlaying) {
+                setIsPlaying(false);
+            }
             audioRef.current.src = podcast.audio_url[selectedVoice];
-
             audioRef.current.load();
+            if (isPlaying) {
+                audioRef.current.addEventListener(
+                    'loadedmetadata',
+                    function onLoadedMetadata() {
+                        if (audioRef.current) {
+                            audioRef.current.currentTime = currentPosition;
+                            audioRef.current.removeEventListener(
+                                'loadedmetadata',
+                                onLoadedMetadata,
+                            );
+                        }
+                    },
+                );
+                audioRef.current.addEventListener(
+                    'canplaythrough',
+                    function onCanPlayThrough() {
+                        if (audioRef.current) {
+                            audioRef.current
+                                .play()
+                                .then(() => {
+                                    setIsPlaying(true);
+                                    setCurrentTime(currentPosition);
+                                })
+                                .catch((error) => {
+                                    console.error(
+                                        'Error playing audio after voice switch:',
+                                        error,
+                                    );
+                                    setIsPlaying(false);
+                                });
 
-            audioRef.current.currentTime = currentPosition;
-            if (wasPlaying) {
-                audioRef.current.play();
+                            audioRef.current.removeEventListener(
+                                'canplaythrough',
+                                onCanPlayThrough,
+                            );
+                        }
+                    },
+                );
+            } else {
+                audioRef.current.addEventListener(
+                    'loadedmetadata',
+                    function onLoadedMetadata() {
+                        if (audioRef.current) {
+                            audioRef.current.currentTime = currentPosition;
+                            setCurrentTime(currentPosition);
+                            audioRef.current.removeEventListener(
+                                'loadedmetadata',
+                                onLoadedMetadata,
+                            );
+                        }
+                    },
+                );
             }
         }
     }, [selectedVoice, podcast.audio_url]);
@@ -84,7 +134,6 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             const currentTime = audioRef.current.currentTime;
             setCurrentTime(currentTime);
 
-            // Tìm subtitle đang được phát
             const activeIndex = podcast.timestamp_script.findIndex(
                 (item) =>
                     currentTime >= item.startTime && currentTime < item.endTime,
