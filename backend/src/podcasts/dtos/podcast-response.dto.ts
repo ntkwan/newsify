@@ -29,7 +29,16 @@ export class PodcastResponseDto {
 
     @ApiProperty({
         description: 'The script with timestamps for navigation',
-        example: { '00:00': 'Introduction', '01:30': 'First News Item' },
+        example: {
+            male_voice: {
+                '00:00': 'Introduction',
+                '01:30': 'First News Item',
+            },
+            female_voice: {
+                '00:00': 'Introduction',
+                '01:30': 'First News Item',
+            },
+        },
         required: false,
     })
     timestamp_script: object | null;
@@ -46,10 +55,13 @@ export class PodcastResponseDto {
 
     @ApiProperty({
         description: 'The length of the podcast in seconds',
-        example: 1800,
+        example: {
+            male_voice: 1800,
+            female_voice: 1800,
+        },
         required: false,
     })
-    length_seconds: number | null;
+    length_seconds: object | null;
 
     @ApiProperty({
         description: 'The links to the articles',

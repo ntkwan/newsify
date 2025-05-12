@@ -56,14 +56,11 @@ export default function DailyPodcastsPage() {
                                     console.log(
                                         '- Parsed timestamp_script from string to object',
                                     );
-                                }
-                                // Handle case where it might be a stringified array
-                                else if (
+                                } else if (
                                     scriptStr.startsWith('[') &&
                                     scriptStr.endsWith(']')
                                 ) {
                                     const parsedArray = JSON.parse(scriptStr);
-                                    // If we have a direct array, wrap it in the voice structure
                                     if (Array.isArray(parsedArray)) {
                                         validTimestampScript = {
                                             male_voice: scriptStr, // Keep as string for later parsing

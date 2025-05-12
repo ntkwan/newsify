@@ -37,7 +37,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     >(null);
     const [selectedVoice, setSelectedVoice] = useState<
         'male_voice' | 'female_voice'
-    >('female_voice');
+    >('male_voice');
     const audioRef = useRef<HTMLAudioElement>(null);
     const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
 
