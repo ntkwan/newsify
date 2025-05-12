@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { Podcast } from '@/types/podcast';
 import { useState } from 'react';
-import { formatPodcastTitle, getPodcastLength } from '@/utils/format-helpers';
+import { getPodcastLength } from '@/utils/format-helpers';
 
 interface PodcastGridProps {
     podcasts: Podcast[];
