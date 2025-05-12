@@ -1,3 +1,5 @@
+import { Podcast } from '@/types/podcast';
+
 /**
  * Formats a podcast title by removing the time portion while keeping the date
  * Example: "Newsify Night Update - May 05, 2025 12:00 AM" -> "Newsify Night Update - May 05, 2025"
@@ -17,4 +19,31 @@ export function formatPodcastTitle(title: string): string {
 
     // If the pattern doesn't match, return the original title
     return title;
+}
+
+/**
+ * Gets the podcast length in seconds, handling different data formats
+ *
+ * @param podcast The podcast object
+ * @returns The length in seconds
+ */
+export function getPodcastLength(podcast: Podcast): number {
+    if (!podcast.length_seconds) {
+        return 0;
+    }
+
+    // If length_seconds is an object with voice-specific values
+    if (typeof podcast.length_seconds === 'object') {
+        const femaleLength = podcast.length_seconds.female_voice;
+        if (typeof femaleLength === 'number') {
+            return femaleLength;
+        }
+    }
+
+    // If length_seconds is directly a number (backward compatibility)
+    if (typeof podcast.length_seconds === 'number') {
+        return podcast.length_seconds;
+    }
+
+    return 0;
 }

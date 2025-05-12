@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { Podcast } from '@/types/podcast';
 import { useState } from 'react';
+import { formatPodcastTitle, getPodcastLength } from '@/utils/format-helpers';
 
 interface PodcastGridProps {
     podcasts: Podcast[];
@@ -146,14 +147,10 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                                 />
                                             </svg>
                                             {Math.floor(
-                                                (podcast.length_seconds
-                                                    ?.female_voice || 0) / 60,
+                                                getPodcastLength(podcast) / 60,
                                             )}
                                             :
-                                            {(
-                                                (podcast.length_seconds
-                                                    ?.female_voice || 0) % 60
-                                            )
+                                            {(getPodcastLength(podcast) % 60)
                                                 .toString()
                                                 .padStart(2, '0')}{' '}
                                             min

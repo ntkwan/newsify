@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { Podcast } from '@/types/podcast';
 import { useRouter } from 'next/navigation';
+import { getPodcastLength } from '@/utils/format-helpers';
 
 export default function LatestPodcastSection() {
     const router = useRouter();
@@ -79,9 +80,7 @@ export default function LatestPodcastSection() {
                             New Releases • {formattedDate} | {formattedTime}{' '}
                             GMT+7
                         </div>
-                        <h3 className="text-2xl font-bold">
-                            {latestPodcast.title}
-                        </h3>
+                        <h3 className="text-2xl font-bold"></h3>
                     </div>
                     <Button
                         variant="outline"
@@ -91,7 +90,8 @@ export default function LatestPodcastSection() {
                         <Play className="h-4 w-4 text-[#01aa4f]" />
                         <span className="text-xs font-medium">
                             LISTEN NOW (
-                            {Math.floor(latestPodcast.length_seconds / 60)} min)
+                            {Math.floor(getPodcastLength(latestPodcast) / 60)}{' '}
+                            min(s))
                         </span>
                     </Button>
                 </div>
