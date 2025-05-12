@@ -12,7 +12,7 @@ import {
     Venus,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { Podcast } from '@/types/podcast';
+import { Podcast, TimestampScript } from '@/types/podcast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     DropdownMenu,
@@ -41,9 +41,66 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-    const currentTimestampScript =
-        podcast.timestamp_script?.[selectedVoice] || [];
-    const currentLengthSeconds = podcast.length_seconds?.[selectedVoice] || 0;
+    const getCurrentTranscript = (): TimestampScript[] => {
+        if (
+            !podcast.timestamp_script ||
+            typeof podcast.timestamp_script !== 'object'
+        ) {
+            console.error(
+                'Invalid timestamp_script structure:',
+                podcast.timestamp_script,
+            );
+            return [];
+        }
+
+        const voiceData = podcast.timestamp_script[selectedVoice];
+
+        if (typeof voiceData === 'string') {
+            try {
+                const parsedData = JSON.parse(voiceData as string);
+                if (Array.isArray(parsedData)) {
+                    return parsedData;
+                } else {
+                    console.error('Parsed data is not an array:', parsedData);
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error parsing voice data string:', error);
+                return [];
+            }
+        }
+
+        if (Array.isArray(voiceData)) {
+            return voiceData;
+        }
+
+        console.error(
+            'Voice data is neither a string nor an array:',
+            voiceData,
+        );
+        return [];
+    };
+
+    const getCurrentLengthSeconds = (): number => {
+        if (!podcast.length_seconds) {
+            return 0;
+        }
+
+        if (typeof podcast.length_seconds === 'object') {
+            const lengthValue = podcast.length_seconds[selectedVoice];
+            if (typeof lengthValue === 'number') {
+                return lengthValue;
+            }
+        }
+
+        if (typeof podcast.length_seconds === 'number') {
+            return podcast.length_seconds;
+        }
+
+        return 0;
+    };
+
+    const currentLengthSeconds = getCurrentLengthSeconds();
 
     useEffect(() => {
         if (audioRef.current) {
@@ -138,11 +195,18 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             const currentTime = audioRef.current.currentTime;
             setCurrentTime(currentTime);
 
-            const activeIndex = currentTimestampScript.findIndex(
-                (item) =>
-                    currentTime >= item.startTime && currentTime < item.endTime,
-            );
-            setActiveSubtitleIndex(activeIndex);
+            const transcript = getCurrentTranscript();
+
+            if (Array.isArray(transcript) && transcript.length > 0) {
+                const activeIndex = transcript.findIndex(
+                    (item) =>
+                        currentTime >= item.startTime &&
+                        currentTime < item.endTime,
+                );
+                setActiveSubtitleIndex(activeIndex);
+            } else {
+                setActiveSubtitleIndex(null);
+            }
         }
     };
 
@@ -329,47 +393,64 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             </div>
 
             <div className="mt-4 space-y-2 max-h-[300px] overflow-y-auto scrollbar-hide">
-                <AnimatePresence>
-                    {Array.isArray(currentTimestampScript) &&
-                        currentTimestampScript.map((item, index) => (
-                            <motion.div
-                                key={index}
-                                ref={(el) => {
-                                    subtitleRefs.current[index] = el;
-                                }}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{
-                                    opacity: 1,
-                                    y: 0,
-                                    backgroundColor:
+                {(() => {
+                    const transcript = getCurrentTranscript();
+
+                    if (!Array.isArray(transcript) || transcript.length === 0) {
+                        return (
+                            <div className="p-3 text-center text-gray-500">
+                                No transcript available for this recording
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <AnimatePresence>
+                            {transcript.map((item, index) => (
+                                <motion.div
+                                    key={index}
+                                    ref={(el) => {
+                                        subtitleRefs.current[index] = el;
+                                    }}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                        backgroundColor:
+                                            activeSubtitleIndex === index
+                                                ? 'rgba(1, 170, 79, 0.1)'
+                                                : 'transparent',
+                                    }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.2 }}
+                                    className={`p-3 rounded-lg cursor-pointer hover:bg-gray-200 hover:cursor-pointer transition-colors ${
                                         activeSubtitleIndex === index
-                                            ? 'rgba(1, 170, 79, 0.1)'
-                                            : 'transparent',
-                                }}
-                                exit={{ opacity: 0, y: -20 }}
-                                transition={{ duration: 0.2 }}
-                                className={`p-3 rounded-lg cursor-pointer hover:bg-gray-200 hover:cursor-pointer transition-colors ${
-                                    activeSubtitleIndex === index
-                                        ? 'border-l-4 border-[#01aa4f]'
-                                        : ''
-                                }`}
-                                onClick={() =>
-                                    handleSubtitleClick(item.startTime)
-                                }
-                            >
-                                <div className="flex items-start space-x-2">
-                                    <span className="text-xs text-gray-500 min-w-[50px]">
-                                        {formatTime(item.startTime)}
-                                    </span>
-                                    <span
-                                        className={`${activeSubtitleIndex === index ? 'font-medium' : ''}`}
-                                    >
-                                        {item.text}
-                                    </span>
-                                </div>
-                            </motion.div>
-                        ))}
-                </AnimatePresence>
+                                            ? 'border-l-4 border-[#01aa4f]'
+                                            : ''
+                                    }`}
+                                    onClick={() => {
+                                        if (
+                                            typeof item.startTime === 'number'
+                                        ) {
+                                            handleSubtitleClick(item.startTime);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-start space-x-2">
+                                        <span className="text-xs text-gray-500 min-w-[50px]">
+                                            {formatTime(item.startTime)}
+                                        </span>
+                                        <span
+                                            className={`${activeSubtitleIndex === index ? 'font-medium' : ''}`}
+                                        >
+                                            {item.text || ''}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    );
+                })()}
             </div>
         </div>
     );

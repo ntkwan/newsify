@@ -28,10 +28,122 @@ export default function DailyPodcastsPage() {
                     throw new Error('Invalid podcasts data format');
                 }
 
-                setPodcasts(data.podcasts);
-                // Set podcast đầu tiên làm podcast hiện tại
-                if (data.podcasts.length > 0) {
-                    setCurrentPodcast(data.podcasts[0]);
+                const processedPodcasts = data.podcasts.map(
+                    (podcast: Partial<Podcast>) => {
+                        console.log(
+                            `Processing podcast ${podcast.podcast_id}:`,
+                        );
+                        console.log(
+                            `- timestamp_script type: ${typeof podcast.timestamp_script}`,
+                        );
+
+                        let validTimestampScript = podcast.timestamp_script;
+
+                        // For timestamp_script
+                        // If it's a string but not yet a JSON object, try to parse it
+                        if (typeof podcast.timestamp_script === 'string') {
+                            const scriptStr =
+                                podcast.timestamp_script as string;
+                            try {
+                                // Check if it's already a stringified object
+                                if (
+                                    scriptStr.startsWith('{') &&
+                                    scriptStr.endsWith('}')
+                                ) {
+                                    validTimestampScript =
+                                        JSON.parse(scriptStr);
+                                    console.log(
+                                        '- Parsed timestamp_script from string to object',
+                                    );
+                                }
+                                // Handle case where it might be a stringified array
+                                else if (
+                                    scriptStr.startsWith('[') &&
+                                    scriptStr.endsWith(']')
+                                ) {
+                                    const parsedArray = JSON.parse(scriptStr);
+                                    // If we have a direct array, wrap it in the voice structure
+                                    if (Array.isArray(parsedArray)) {
+                                        validTimestampScript = {
+                                            male_voice: scriptStr, // Keep as string for later parsing
+                                            female_voice: scriptStr, // Keep as string for later parsing
+                                        };
+                                        console.log(
+                                            '- Converted array to voice-specific object (keeping as strings for parsing later)',
+                                        );
+                                    }
+                                }
+                            } catch (e) {
+                                console.error(
+                                    '- Failed to parse timestamp_script:',
+                                    e,
+                                );
+                                validTimestampScript = {
+                                    male_voice: '[]',
+                                    female_voice: '[]',
+                                };
+                            }
+                        }
+
+                        // If it's not a valid object after processing, create an empty structure
+                        if (
+                            !validTimestampScript ||
+                            typeof validTimestampScript !== 'object'
+                        ) {
+                            validTimestampScript = {
+                                male_voice: '[]',
+                                female_voice: '[]',
+                            };
+                            console.log(
+                                '- Created empty timestamp_script structure',
+                            );
+                        }
+
+                        // For length_seconds
+                        let validLengthSeconds = podcast.length_seconds;
+                        if (typeof podcast.length_seconds === 'number') {
+                            validLengthSeconds = {
+                                male_voice: podcast.length_seconds,
+                                female_voice: podcast.length_seconds,
+                            };
+                            console.log(
+                                '- Converted length_seconds from number to object',
+                            );
+                        } else if (
+                            !validLengthSeconds ||
+                            typeof validLengthSeconds !== 'object'
+                        ) {
+                            validLengthSeconds = {
+                                male_voice: 0,
+                                female_voice: 0,
+                            };
+                            console.log(
+                                '- Created empty length_seconds structure',
+                            );
+                        }
+
+                        if (validTimestampScript) {
+                            console.log(
+                                '- Final timestamp_script structure:',
+                                JSON.stringify(validTimestampScript).substring(
+                                    0,
+                                    100,
+                                ) + '...',
+                            );
+                        }
+
+                        return {
+                            ...podcast,
+                            timestamp_script: validTimestampScript,
+                            length_seconds: validLengthSeconds,
+                        } as Podcast;
+                    },
+                );
+
+                setPodcasts(processedPodcasts);
+
+                if (processedPodcasts.length > 0) {
+                    setCurrentPodcast(processedPodcasts[0]);
                 }
             } catch (err) {
                 console.error('Error fetching podcasts:', err);

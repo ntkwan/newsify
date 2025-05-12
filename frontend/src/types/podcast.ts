@@ -10,8 +10,8 @@ export interface AudioUrl {
 }
 
 export interface VoiceData {
-    male_voice: TimestampScript[];
-    female_voice: TimestampScript[];
+    male_voice: TimestampScript[] | string;
+    female_voice: TimestampScript[] | string;
 }
 
 export interface LengthSeconds {
