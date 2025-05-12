@@ -6,6 +6,7 @@ import { Podcast } from '@/types/podcast';
 import Image from 'next/image';
 import { PodcastGrid } from '@/components/podcast-grid';
 import Loading from './loading';
+import { formatPodcastTitle } from '@/utils/format-helpers';
 
 export default function DailyPodcastsPage() {
     const [podcasts, setPodcasts] = useState<Podcast[]>([]);
@@ -179,10 +180,10 @@ export default function DailyPodcastsPage() {
             {currentPodcast && (
                 <div className="bg-white rounded-lg shadow-lg p-4 md:p-8">
                     <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center">
-                        <div className="relative w-32 h-32 md:w-48 md:h-48 flex-shrink-0">
+                        <div className="relative w-32 h-32 md:w-48 md:h-48 flex-shrink-0 md:self-end">
                             <Image
                                 src="/images/placeholders/podcast-placeholder.png"
-                                alt={currentPodcast.title}
+                                alt={formatPodcastTitle(currentPodcast.title)}
                                 fill
                                 className="object-cover rounded-lg"
                             />
