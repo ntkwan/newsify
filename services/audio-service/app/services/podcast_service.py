@@ -434,25 +434,29 @@ Here's the transcript:
             try:
                 await self._ensure_table_exists(db)
                 
-                # Convert timestamp scripts to JSONB
+                # Convert timestamp scripts to proper format
                 timestamp_script_json = {
-                    "female_voice": json.dumps([
+                    "female_voice": [
                         {
                             "startTime": line["startTime"],
                             "endTime": line["endTime"],
                             "text": line["text"]
                         } for line in transcript_data["female_voice"]["timestampedTranscript"]
-                    ]),
-                    "male_voice": json.dumps([
+                    ],
+                    "male_voice": [
                         {
                             "startTime": line["startTime"],
                             "endTime": line["endTime"],
                             "text": line["text"]
                         } for line in transcript_data["male_voice"]["timestampedTranscript"]
-                    ])
+                    ]
                 }
                 
-                # Calculate lengths for both audios
+                db_timestamp_script = {
+                    "female_voice": json.dumps(timestamp_script_json["female_voice"]),
+                    "male_voice": json.dumps(timestamp_script_json["male_voice"])
+                }
+                
                 podcast_length = {
                     "female_voice": self.calculate_podcast_length(transcript_data["female_voice"]["timestampedTranscript"]),
                     "male_voice": self.calculate_podcast_length(transcript_data["male_voice"]["timestampedTranscript"])
@@ -482,7 +486,7 @@ Here's the transcript:
                     publish_date=newest_date,
                     title=podcast_title,
                     script=podcast_script,
-                    timestamp_script=timestamp_script_json,
+                    timestamp_script=db_timestamp_script,
                     audio_url=uploaded_urls,  # Now storing the JSON with both URLs
                     length_seconds=podcast_length,
                     links=[article.url for article in articles if hasattr(article, 'url') and article.url],
