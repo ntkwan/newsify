@@ -167,7 +167,13 @@ async def generate_podcast(
     - **startTime**: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
     - **endTime**: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
     
-    Returns the URL to the generated podcast, full transcript, and timestamped transcript.
+    Returns:
+    - **url**: Dictionary with URLs for different voice types (male_voice, female_voice)
+    - **title**: Podcast title
+    - **script**: Full podcast script
+    - **timestampedTranscript**: Dictionary with transcript for each voice type
+    - **length_seconds**: Dictionary with length for each voice type in seconds
+    - **links**: List of URLs to the original articles
     """
     try:
         try:

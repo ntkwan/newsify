@@ -45,14 +45,14 @@ export class Podcast extends Model {
         allowNull: true,
         field: 'audio_url',
     })
-    audioUrl: string;
+    audioUrl: object;
 
     @Column({
-        type: DataType.INTEGER,
+        type: DataType.JSONB,
         allowNull: true,
         field: 'length_seconds',
     })
-    lengthSeconds: number;
+    lengthSeconds: object;
 
     @Column({
         type: DataType.ARRAY(DataType.TEXT),

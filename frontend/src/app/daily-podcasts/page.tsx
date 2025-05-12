@@ -6,6 +6,7 @@ import { Podcast } from '@/types/podcast';
 import Image from 'next/image';
 import { PodcastGrid } from '@/components/podcast-grid';
 import Loading from './loading';
+import { formatPodcastTitle } from '@/utils/format-helpers';
 
 export default function DailyPodcastsPage() {
     const [podcasts, setPodcasts] = useState<Podcast[]>([]);
@@ -28,10 +29,119 @@ export default function DailyPodcastsPage() {
                     throw new Error('Invalid podcasts data format');
                 }
 
-                setPodcasts(data.podcasts);
-                // Set podcast đầu tiên làm podcast hiện tại
-                if (data.podcasts.length > 0) {
-                    setCurrentPodcast(data.podcasts[0]);
+                const processedPodcasts = data.podcasts.map(
+                    (podcast: Partial<Podcast>) => {
+                        console.log(
+                            `Processing podcast ${podcast.podcast_id}:`,
+                        );
+                        console.log(
+                            `- timestamp_script type: ${typeof podcast.timestamp_script}`,
+                        );
+
+                        let validTimestampScript = podcast.timestamp_script;
+
+                        // For timestamp_script
+                        // If it's a string but not yet a JSON object, try to parse it
+                        if (typeof podcast.timestamp_script === 'string') {
+                            const scriptStr =
+                                podcast.timestamp_script as string;
+                            try {
+                                // Check if it's already a stringified object
+                                if (
+                                    scriptStr.startsWith('{') &&
+                                    scriptStr.endsWith('}')
+                                ) {
+                                    validTimestampScript =
+                                        JSON.parse(scriptStr);
+                                    console.log(
+                                        '- Parsed timestamp_script from string to object',
+                                    );
+                                } else if (
+                                    scriptStr.startsWith('[') &&
+                                    scriptStr.endsWith(']')
+                                ) {
+                                    const parsedArray = JSON.parse(scriptStr);
+                                    if (Array.isArray(parsedArray)) {
+                                        validTimestampScript = {
+                                            male_voice: scriptStr, // Keep as string for later parsing
+                                            female_voice: scriptStr, // Keep as string for later parsing
+                                        };
+                                        console.log(
+                                            '- Converted array to voice-specific object (keeping as strings for parsing later)',
+                                        );
+                                    }
+                                }
+                            } catch (e) {
+                                console.error(
+                                    '- Failed to parse timestamp_script:',
+                                    e,
+                                );
+                                validTimestampScript = {
+                                    male_voice: '[]',
+                                    female_voice: '[]',
+                                };
+                            }
+                        }
+
+                        // If it's not a valid object after processing, create an empty structure
+                        if (
+                            !validTimestampScript ||
+                            typeof validTimestampScript !== 'object'
+                        ) {
+                            validTimestampScript = {
+                                male_voice: '[]',
+                                female_voice: '[]',
+                            };
+                            console.log(
+                                '- Created empty timestamp_script structure',
+                            );
+                        }
+
+                        // For length_seconds
+                        let validLengthSeconds = podcast.length_seconds;
+                        if (typeof podcast.length_seconds === 'number') {
+                            validLengthSeconds = {
+                                male_voice: podcast.length_seconds,
+                                female_voice: podcast.length_seconds,
+                            };
+                            console.log(
+                                '- Converted length_seconds from number to object',
+                            );
+                        } else if (
+                            !validLengthSeconds ||
+                            typeof validLengthSeconds !== 'object'
+                        ) {
+                            validLengthSeconds = {
+                                male_voice: 0,
+                                female_voice: 0,
+                            };
+                            console.log(
+                                '- Created empty length_seconds structure',
+                            );
+                        }
+
+                        if (validTimestampScript) {
+                            console.log(
+                                '- Final timestamp_script structure:',
+                                JSON.stringify(validTimestampScript).substring(
+                                    0,
+                                    100,
+                                ) + '...',
+                            );
+                        }
+
+                        return {
+                            ...podcast,
+                            timestamp_script: validTimestampScript,
+                            length_seconds: validLengthSeconds,
+                        } as Podcast;
+                    },
+                );
+
+                setPodcasts(processedPodcasts);
+
+                if (processedPodcasts.length > 0) {
+                    setCurrentPodcast(processedPodcasts[0]);
                 }
             } catch (err) {
                 console.error('Error fetching podcasts:', err);
@@ -67,10 +177,10 @@ export default function DailyPodcastsPage() {
             {currentPodcast && (
                 <div className="bg-white rounded-lg shadow-lg p-4 md:p-8">
                     <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center">
-                        <div className="relative w-32 h-32 md:w-48 md:h-48 flex-shrink-0">
+                        <div className="relative w-32 h-32 md:w-48 md:h-48 flex-shrink-0 md:self-end">
                             <Image
                                 src="/images/placeholders/podcast-placeholder.png"
-                                alt={currentPodcast.title}
+                                alt={formatPodcastTitle(currentPodcast.title)}
                                 fill
                                 className="object-cover rounded-lg"
                             />
@@ -79,35 +189,24 @@ export default function DailyPodcastsPage() {
                             <h2 className="text-2xl md:text-3xl font-bold text-[#01aa4f] mb-4">
                                 {currentPodcast.title}
                             </h2>
-                            <div className="text-gray-500 mb-4">
-                                {(() => {
-                                    // Subtract 7 hours from the publish date
-                                    const date = new Date(currentPodcast.publish_date);
-                                    date.setHours(date.getHours() - 7);
-                                    
-                                    return date.toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    });
-                                })()}
-                            </div>
                             <div className="flex flex-col md:flex-row gap-4 items-stretch min-h-[192px]">
                                 <div className="bg-[#01aa4f] text-white rounded-lg p-3 text-center flex flex-col justify-center">
                                     <div className="font-bold">Daily News</div>
                                     <div className="text-xl font-bold">
                                         {(() => {
                                             // Subtract 7 hours from the publish date
-                                            const date = new Date(currentPodcast.publish_date);
+                                            const date = new Date(
+                                                currentPodcast.publish_date,
+                                            );
                                             date.setHours(date.getHours() - 7);
-                                            
-                                            return date.toLocaleTimeString('en-US', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            });
+
+                                            return date.toLocaleTimeString(
+                                                'en-US',
+                                                {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                },
+                                            );
                                         })()}
                                     </div>
                                 </div>

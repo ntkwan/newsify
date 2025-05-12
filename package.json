@@ -1,36 +1,36 @@
 {
-  "name": "newsify",
-  "private": true,
-  "scripts": {
-    "prepare": "husky && husky install",
-    "lint": "npm run lint:backend && npm run lint:frontend",
-    "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint",
-    "commitlint": "commitlint --edit",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\""
-  },
-  "lint-staged": {
-    "*.{css,scss}": [
-      "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --write"
-    ],
-    "*.{js,jsx,ts,tsx}": [
-      "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --trailing-comma all --write"
-    ],
-    "*.json": [
-      "prettier --ignore-path .eslintignore --write"
-    ],
-    "*.{html,md,yml}": [
-      "prettier --ignore-path .eslintignore --single-quote --write"
-    ]
-  },
-  "devDependencies": {
-    "@commitlint/cli": "^19.0.0",
-    "@commitlint/config-conventional": "^19.0.0",
-    "cross-env": "^7.0.3",
-    "husky": "^8.0.3",
-    "lint-staged": "^15.2.0",
-    "prettier": "^3.1.0"
-  },
-  "packageManager": "pnpm@9.15.2+sha512.93e57b0126f0df74ce6bff29680394c0ba54ec47246b9cf321f0121d8d9bb03f750a705f24edc3c1180853afd7c2c3b94196d0a3d53d3e069d9e2793ef11f321"
+    "name": "newsify",
+    "private": true,
+    "scripts": {
+        "prepare": "husky && husky install",
+        "lint": "npm run lint:backend && npm run lint:frontend",
+        "lint:backend": "cd backend && npm run lint",
+        "lint:frontend": "cd frontend && npm run lint",
+        "commitlint": "commitlint --edit",
+        "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+        "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\""
+    },
+    "lint-staged": {
+        "*.{css,scss}": [
+            "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --write"
+        ],
+        "*.{js,jsx,ts,tsx}": [
+            "prettier --ignore-path .eslintignore --single-quote --tab-width 4 --trailing-comma all --write"
+        ],
+        "*.json": [
+            "prettier --ignore-path .eslintignore --write"
+        ],
+        "*.{html,md,yml}": [
+            "prettier --ignore-path .eslintignore --single-quote --write"
+        ]
+    },
+    "devDependencies": {
+        "@commitlint/cli": "^19.0.0",
+        "@commitlint/config-conventional": "^19.0.0",
+        "cross-env": "^7.0.3",
+        "husky": "^8.0.3",
+        "lint-staged": "^15.2.0",
+        "prettier": "^3.1.0"
+    },
+    "packageManager": "pnpm@9.15.2+sha512.93e57b0126f0df74ce6bff29680394c0ba54ec47246b9cf321f0121d8d9bb03f750a705f24edc3c1180853afd7c2c3b94196d0a3d53d3e069d9e2793ef11f321"
 }

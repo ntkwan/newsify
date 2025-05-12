@@ -73,6 +73,7 @@ GET /trending?country=US
 ```
 
 Query Parameters:
+
 - `country`: Country code for trending data (default: US)
 
 Returns a list of current trending topics from Google Trends.
@@ -84,6 +85,7 @@ GET /trending/related?country=US
 ```
 
 Query Parameters:
+
 - `country`: Country code for trending data (default: US)
 
 Returns related queries for trending topics from Google Trends.
@@ -95,11 +97,13 @@ POST /analyze/latest?hours=24&limit=20&from_time=2023-05-01T08:00:00
 ```
 
 Query Parameters:
+
 - `hours`: Number of hours to look back for articles (default: 24) - used if from_time is not provided
 - `limit`: Maximum number of articles to analyze (default: 20)
 - `from_time`: Optional custom start time in ISO format (YYYY-MM-DDTHH:MM:SS) - overrides hours parameter when provided
 
 This endpoint automatically:
+
 1. Fetches the most recent articles published within the specified time window
 2. Analyzes each article against current trending topics
 3. Saves the analysis results to the Digital Ocean database
@@ -114,24 +118,26 @@ POST /analyze
 ```
 
 Request Body:
+
 ```json
 {
-  "content": "Article content to analyze",
-  "title": "Article title",
-  "url": "https://example.com/article",
-  "article_id": "uuid-of-article"
+    "content": "Article content to analyze",
+    "title": "Article title",
+    "url": "https://example.com/article",
+    "article_id": "uuid-of-article"
 }
 ```
 
 Response:
+
 ```json
 {
-  "url": "https://example.com/article",
-  "title": "Article title",
-  "content": "Article content to analyze",
-  "trend": "Trending Topic",
-  "similarity_score": 0.85,
-  "article_id": "uuid-of-article"
+    "url": "https://example.com/article",
+    "title": "Article title",
+    "content": "Article content to analyze",
+    "trend": "Trending Topic",
+    "similarity_score": 0.85,
+    "article_id": "uuid-of-article"
 }
 ```
 
@@ -142,22 +148,23 @@ POST /analyze/batch
 ```
 
 Request Body:
+
 ```json
 {
-  "articles": [
-    {
-      "content": "First article content",
-      "title": "First article title",
-      "url": "https://example.com/article1",
-      "article_id": "uuid-of-article1"
-    },
-    {
-      "content": "Second article content",
-      "title": "Second article title",
-      "url": "https://example.com/article2",
-      "article_id": "uuid-of-article2"
-    }
-  ]
+    "articles": [
+        {
+            "content": "First article content",
+            "title": "First article title",
+            "url": "https://example.com/article1",
+            "article_id": "uuid-of-article1"
+        },
+        {
+            "content": "Second article content",
+            "title": "Second article title",
+            "url": "https://example.com/article2",
+            "article_id": "uuid-of-article2"
+        }
+    ]
 }
 ```
 
@@ -186,6 +193,7 @@ docker-compose up
 ## Database Schema
 
 ### Supabase Articles Table
+
 ```sql
 create table public."Articles" (
   id uuid not null default gen_random_uuid(),
@@ -208,6 +216,7 @@ create table public."Articles" (
 ```
 
 ### Digital Ocean TrendingArticles Table
+
 ```sql
 create table public."TrendingArticles" (
   trending_id uuid not null default gen_random_uuid(),
@@ -229,4 +238,4 @@ If you encounter errors about missing tables or database connection issues:
 2. Run the `sync_do_tables.py` script to create the TrendingArticles table
 3. Check if the table was created successfully
 4. If problems persist, inspect the detailed error messages in the logs
-5. Ensure your environment variables match the expected format and values 
+5. Ensure your environment variables match the expected format and values

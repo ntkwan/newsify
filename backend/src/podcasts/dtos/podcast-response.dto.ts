@@ -29,28 +29,46 @@ export class PodcastResponseDto {
 
     @ApiProperty({
         description: 'The script with timestamps for navigation',
-        example: { '00:00': 'Introduction', '01:30': 'First News Item' },
+        example: {
+            male_voice: {
+                '00:00': 'Introduction',
+                '01:30': 'First News Item',
+            },
+            female_voice: {
+                '00:00': 'Introduction',
+                '01:30': 'First News Item',
+            },
+        },
         required: false,
     })
     timestamp_script: object | null;
 
     @ApiProperty({
         description: 'The URL of the audio file',
-        example: 'https://example.com/podcasts/tech-news-weekly.mp3',
-        required: false,
+        example: {
+            male_voice: 'https://example.com/podcasts/tech-news-weekly.mp3',
+            female_voice: 'https://example.com/podcasts/tech-news-weekly.mp3',
+        },
+        required: true,
     })
-    audio_url: string | null;
+    audio_url: JSON | null;
 
     @ApiProperty({
         description: 'The length of the podcast in seconds',
-        example: 1800,
+        example: {
+            male_voice: 1800,
+            female_voice: 1800,
+        },
         required: false,
     })
-    length_seconds: number | null;
+    length_seconds: object | null;
 
     @ApiProperty({
         description: 'The links to the articles',
-        example: ['https://example.com/article1', 'https://example.com/article2'],
+        example: [
+            'https://example.com/article1',
+            'https://example.com/article2',
+        ],
         required: false,
     })
     links: string[] | null;

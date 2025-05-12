@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { Podcast } from '@/types/podcast';
 import { useState } from 'react';
+import { getPodcastLength } from '@/utils/format-helpers';
 
 interface PodcastGridProps {
     podcasts: Podcast[];
@@ -115,14 +116,21 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                             </svg>
                                             {(() => {
                                                 // Subtract 7 hours from the publish date
-                                                const date = new Date(podcast.publish_date);
-                                                date.setHours(date.getHours() - 7);
+                                                const date = new Date(
+                                                    podcast.publish_date,
+                                                );
+                                                date.setHours(
+                                                    date.getHours() - 7,
+                                                );
 
-                                                return date.toLocaleDateString('en-US', {
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                });
+                                                return date.toLocaleDateString(
+                                                    'en-US',
+                                                    {
+                                                        month: 'long',
+                                                        day: 'numeric',
+                                                        year: 'numeric',
+                                                    },
+                                                );
                                             })()}
                                         </div>
                                         <div className="flex items-center justify-start pl-2 gap-2 text-gray-500 text-sm">
@@ -139,10 +147,10 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                                 />
                                             </svg>
                                             {Math.floor(
-                                                podcast.length_seconds / 60,
+                                                getPodcastLength(podcast) / 60,
                                             )}
                                             :
-                                            {(podcast.length_seconds % 60)
+                                            {(getPodcastLength(podcast) % 60)
                                                 .toString()
                                                 .padStart(2, '0')}{' '}
                                             min
