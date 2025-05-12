@@ -147,3 +147,32 @@ create table public."Podcast" (
   constraint Podcast_pkey primary key (podcast_id)
 )
 ```
+
+## Recent Updates
+
+### Physical Audio Length Calculation
+
+The podcast service now calculates audio length by directly analyzing the audio file, instead of relying solely on transcript timestamps. This provides more accurate duration information.
+
+Features:
+- Primary method uses `ffprobe` to get precise audio duration
+- Fallback to `wave` module for WAV files if ffprobe is unavailable
+- Additional fallback to file size estimation for MP3 files
+- Final fallback to transcript-based calculation for complete reliability
+
+Requirements:
+- FFmpeg/ffprobe (recommended but optional) - provides the most accurate timing
+- Python's built-in `wave` module used as fallback
+
+If using the physical audio measurement, make sure ffmpeg is installed on your system for best results:
+
+```bash
+# Ubuntu/Debian
+apt-get install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Windows
+# Download from https://ffmpeg.org/download.html
+```
