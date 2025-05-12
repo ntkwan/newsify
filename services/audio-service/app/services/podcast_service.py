@@ -2,6 +2,7 @@ import os
 import tempfile
 import re
 import json
+import wave
 from fastapi import HTTPException
 from typing import List, Dict, Any, Tuple, Optional
 import openai
@@ -457,10 +458,20 @@ Here's the transcript:
                     "male_voice": json.dumps(timestamp_script_json["male_voice"])
                 }
                 
+                # Calculate lengths by physically analyzing audio files
                 podcast_length = {
-                    "female_voice": self.calculate_podcast_length(transcript_data["female_voice"]["timestampedTranscript"]),
-                    "male_voice": self.calculate_podcast_length(transcript_data["male_voice"]["timestampedTranscript"])
+                    "female_voice": self.calculate_audio_length(audio_files["female_voice"]),
+                    "male_voice": self.calculate_audio_length(audio_files["male_voice"])
                 }
+                
+                # Fall back to transcript-based calculation if physical measurement fails
+                if podcast_length["female_voice"] <= 0:
+                    podcast_length["female_voice"] = self.calculate_podcast_length(transcript_data["female_voice"]["timestampedTranscript"])
+                    print("Falling back to transcript-based length calculation for female voice")
+                    
+                if podcast_length["male_voice"] <= 0:
+                    podcast_length["male_voice"] = self.calculate_podcast_length(transcript_data["male_voice"]["timestampedTranscript"])
+                    print("Falling back to transcript-based length calculation for male voice")
                 
                 newest_date = None
                 
@@ -569,5 +580,50 @@ Here's the transcript:
             return 0
             
         return int(timestamped_transcript[-1]["endTime"])
+        
+    def calculate_audio_length(self, audio_file_path: str) -> int:
+        """
+        Calculate the length of an audio file in seconds by analyzing the file directly.
+        
+        Args:
+            audio_file_path: Path to the audio file
+            
+        Returns:
+            Length of the audio in seconds
+        """
+        try:
+            # For MP3 files, we'll use ffprobe if available
+            import subprocess
+            
+            cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", 
+                   "-of", "default=noprint_wrappers=1:nokey=1", audio_file_path]
+            
+            try:
+                output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                duration = float(output)
+                return int(duration)
+            except (subprocess.SubprocessError, ValueError, FileNotFoundError):
+                # If ffprobe fails or isn't installed, fall back to wave module for WAV files
+                # or use a default method
+                print("FFprobe not available, using fallback method")
+                
+                if audio_file_path.lower().endswith('.wav'):
+                    with wave.open(audio_file_path, 'rb') as wf:
+                        # Calculate duration from sample rate and frames
+                        frames = wf.getnframes()
+                        rate = wf.getframerate()
+                        duration = frames / float(rate)
+                        return int(duration)
+                else:
+                    # For MP3 files without ffprobe, estimate based on file size
+                    # Very rough estimate: ~128kbps bitrate
+                    file_size = os.path.getsize(audio_file_path)
+                    estimated_seconds = file_size / (128 * 1024 / 8)
+                    return int(estimated_seconds)
+        
+        except Exception as e:
+            print(f"Error calculating audio length: {str(e)}")
+            # Fall back to transcript-based calculation if available
+            return 0
 
 podcast_service = PodcastService() 
