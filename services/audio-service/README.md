@@ -53,26 +53,28 @@ POST /podcast?startTime=2025-04-18T00:00:00&endTime=2025-04-19T00:00:00
 ```
 
 Query Parameters:
+
 - `startTime`: Start time in ISO format (YYYY-MM-DDTHH:mm:ss)
 - `endTime`: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
 
 Response:
+
 ```json
 {
-  "url": "https://storage.example.com/podcasts/newsify-podcast-2025-04-18.mp3",
-  "transcript": "Welcome to Newsify Breaking News. Here are today's top stories...",
-  "timestampedTranscript": [
-    {
-      "startTime": 0,
-      "endTime": 5.2,
-      "text": "Welcome to Newsify Breaking News."
-    },
-    {
-      "startTime": 5.5,
-      "endTime": 10.8,
-      "text": "Here are today's top stories."
-    }
-  ]
+    "url": "https://storage.example.com/podcasts/newsify-podcast-2025-04-18.mp3",
+    "transcript": "Welcome to Newsify Breaking News. Here are today's top stories...",
+    "timestampedTranscript": [
+        {
+            "startTime": 0,
+            "endTime": 5.2,
+            "text": "Welcome to Newsify Breaking News."
+        },
+        {
+            "startTime": 5.5,
+            "endTime": 10.8,
+            "text": "Here are today's top stories."
+        }
+    ]
 }
 ```
 
@@ -109,6 +111,7 @@ If you encounter errors about missing tables or database connection issues:
 ## Database Schema
 
 ### Supabase Articles Table
+
 ```sql
 create table public."Articles" (
   id uuid not null default gen_random_uuid(),
@@ -131,6 +134,7 @@ create table public."Articles" (
 ```
 
 ### Digital Ocean Podcasts Table
+
 ```sql
 create table public."Podcast" (
   podcast_id uuid not null default gen_random_uuid(),

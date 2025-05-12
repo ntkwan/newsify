@@ -115,14 +115,21 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                             </svg>
                                             {(() => {
                                                 // Subtract 7 hours from the publish date
-                                                const date = new Date(podcast.publish_date);
-                                                date.setHours(date.getHours() - 7);
+                                                const date = new Date(
+                                                    podcast.publish_date,
+                                                );
+                                                date.setHours(
+                                                    date.getHours() - 7,
+                                                );
 
-                                                return date.toLocaleDateString('en-US', {
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                });
+                                                return date.toLocaleDateString(
+                                                    'en-US',
+                                                    {
+                                                        month: 'long',
+                                                        day: 'numeric',
+                                                        year: 'numeric',
+                                                    },
+                                                );
                                             })()}
                                         </div>
                                         <div className="flex items-center justify-start pl-2 gap-2 text-gray-500 text-sm">
@@ -139,10 +146,14 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                                 />
                                             </svg>
                                             {Math.floor(
-                                                podcast.length_seconds / 60,
+                                                (podcast.length_seconds
+                                                    ?.female_voice || 0) / 60,
                                             )}
                                             :
-                                            {(podcast.length_seconds % 60)
+                                            {(
+                                                (podcast.length_seconds
+                                                    ?.female_voice || 0) % 60
+                                            )
                                                 .toString()
                                                 .padStart(2, '0')}{' '}
                                             min

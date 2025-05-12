@@ -4,14 +4,29 @@ export interface TimestampScript {
     text: string;
 }
 
+export interface AudioUrl {
+    male_voice: string;
+    female_voice: string;
+}
+
+export interface VoiceData {
+    male_voice: TimestampScript[] | string;
+    female_voice: TimestampScript[] | string;
+}
+
+export interface LengthSeconds {
+    male_voice: number;
+    female_voice: number;
+}
+
 export interface Podcast {
     podcast_id: string;
     publish_date: string;
     title: string;
     script: string;
-    timestamp_script: TimestampScript[];
-    audio_url: string;
-    length_seconds: number;
+    timestamp_script: VoiceData;
+    audio_url: AudioUrl;
+    length_seconds: LengthSeconds;
     links: string[];
 }
 

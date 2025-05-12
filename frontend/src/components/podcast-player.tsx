@@ -8,10 +8,19 @@ import {
     VolumeX,
     FastForward,
     Rewind,
+    Mars,
+    Venus,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { Podcast } from '@/types/podcast';
+import { Podcast, TimestampScript } from '@/types/podcast';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 interface PodcastPlayerProps {
     podcast: Podcast;
@@ -26,8 +35,138 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     const [activeSubtitleIndex, setActiveSubtitleIndex] = useState<
         number | null
     >(null);
+    const [selectedVoice, setSelectedVoice] = useState<
+        'male_voice' | 'female_voice'
+    >('male_voice');
     const audioRef = useRef<HTMLAudioElement>(null);
     const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    const getCurrentTranscript = (): TimestampScript[] => {
+        if (
+            !podcast.timestamp_script ||
+            typeof podcast.timestamp_script !== 'object'
+        ) {
+            console.error(
+                'Invalid timestamp_script structure:',
+                podcast.timestamp_script,
+            );
+            return [];
+        }
+
+        const voiceData = podcast.timestamp_script[selectedVoice];
+
+        if (typeof voiceData === 'string') {
+            try {
+                const parsedData = JSON.parse(voiceData as string);
+                if (Array.isArray(parsedData)) {
+                    return parsedData;
+                } else {
+                    console.error('Parsed data is not an array:', parsedData);
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error parsing voice data string:', error);
+                return [];
+            }
+        }
+
+        if (Array.isArray(voiceData)) {
+            return voiceData;
+        }
+
+        console.error(
+            'Voice data is neither a string nor an array:',
+            voiceData,
+        );
+        return [];
+    };
+
+    const getCurrentLengthSeconds = (): number => {
+        if (!podcast.length_seconds) {
+            return 0;
+        }
+
+        if (typeof podcast.length_seconds === 'object') {
+            const lengthValue = podcast.length_seconds[selectedVoice];
+            if (typeof lengthValue === 'number') {
+                return lengthValue;
+            }
+        }
+
+        if (typeof podcast.length_seconds === 'number') {
+            return podcast.length_seconds;
+        }
+
+        return 0;
+    };
+
+    const currentLengthSeconds = getCurrentLengthSeconds();
+
+    useEffect(() => {
+        if (audioRef.current) {
+            const currentPosition = audioRef.current.currentTime;
+
+            audioRef.current.pause();
+            if (isPlaying) {
+                setIsPlaying(false);
+            }
+            audioRef.current.src = podcast.audio_url?.[selectedVoice] || '';
+            audioRef.current.load();
+            if (isPlaying) {
+                audioRef.current.addEventListener(
+                    'loadedmetadata',
+                    function onLoadedMetadata() {
+                        if (audioRef.current) {
+                            audioRef.current.currentTime = currentPosition;
+                            audioRef.current.removeEventListener(
+                                'loadedmetadata',
+                                onLoadedMetadata,
+                            );
+                        }
+                    },
+                );
+                audioRef.current.addEventListener(
+                    'canplaythrough',
+                    function onCanPlayThrough() {
+                        if (audioRef.current) {
+                            audioRef.current
+                                .play()
+                                .then(() => {
+                                    setIsPlaying(true);
+                                    setCurrentTime(currentPosition);
+                                })
+                                .catch((error) => {
+                                    console.error(
+                                        'Error playing audio after voice switch:',
+                                        error,
+                                    );
+                                    setIsPlaying(false);
+                                });
+
+                            audioRef.current.removeEventListener(
+                                'canplaythrough',
+                                onCanPlayThrough,
+                            );
+                        }
+                    },
+                );
+            } else {
+                audioRef.current.addEventListener(
+                    'loadedmetadata',
+                    function onLoadedMetadata() {
+                        if (audioRef.current) {
+                            audioRef.current.currentTime = currentPosition;
+                            setCurrentTime(currentPosition);
+                            audioRef.current.removeEventListener(
+                                'loadedmetadata',
+                                onLoadedMetadata,
+                            );
+                        }
+                    },
+                );
+            }
+        }
+    }, [selectedVoice, podcast.audio_url]);
 
     useEffect(() => {
         if (audioRef.current) {
@@ -56,12 +195,18 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             const currentTime = audioRef.current.currentTime;
             setCurrentTime(currentTime);
 
-            // Tìm subtitle đang được phát
-            const activeIndex = podcast.timestamp_script.findIndex(
-                (item) =>
-                    currentTime >= item.startTime && currentTime < item.endTime,
-            );
-            setActiveSubtitleIndex(activeIndex);
+            const transcript = getCurrentTranscript();
+
+            if (Array.isArray(transcript) && transcript.length > 0) {
+                const activeIndex = transcript.findIndex(
+                    (item) =>
+                        currentTime >= item.startTime &&
+                        currentTime < item.endTime,
+                );
+                setActiveSubtitleIndex(activeIndex);
+            } else {
+                setActiveSubtitleIndex(null);
+            }
         }
     };
 
@@ -93,6 +238,9 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
     };
 
     const formatTime = (seconds: number) => {
+        if (typeof seconds !== 'number' || isNaN(seconds)) {
+            return '0:00';
+        }
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = Math.floor(seconds % 60);
         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -102,7 +250,7 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
         <div className="space-y-4">
             <audio
                 ref={audioRef}
-                src={podcast.audio_url}
+                src={podcast.audio_url[selectedVoice] || ''}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
             />
@@ -110,14 +258,60 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             <div className="flex justify-between items-center">
                 <div className="text-sm text-gray-500">
                     {formatTime(currentTime)} /{' '}
-                    {formatTime(podcast.length_seconds)}
+                    {formatTime(currentLengthSeconds)}
                 </div>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 bg-white hover:bg-gray-100"
+                        >
+                            {selectedVoice === 'male_voice' ? (
+                                <>
+                                    <Mars className="h-4 w-4 text-blue-600" />
+                                    <span>Male voice</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Venus className="h-4 w-4 text-pink-600" />
+                                    <span>Female voice</span>
+                                </>
+                            )}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top">
+                        <DropdownMenuItem
+                            onClick={() => setSelectedVoice('male_voice')}
+                            className={
+                                selectedVoice === 'male_voice'
+                                    ? 'bg-gray-100'
+                                    : ''
+                            }
+                        >
+                            <Mars className="h-4 w-4 mr-2 text-blue-600" />
+                            Male voice
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => setSelectedVoice('female_voice')}
+                            className={
+                                selectedVoice === 'female_voice'
+                                    ? 'bg-gray-100'
+                                    : ''
+                            }
+                        >
+                            <Venus className="h-4 w-4 mr-2 text-pink-600" />
+                            Female voice
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <div className="relative">
                 <Slider
                     value={[currentTime]}
-                    max={podcast.length_seconds}
+                    max={currentLengthSeconds || 1}
                     step={1}
                     onValueChange={handleSeek}
                     className="h-1 hover:cursor-pointer"
@@ -199,44 +393,64 @@ export const PodcastPlayer: React.FC<PodcastPlayerProps> = ({ podcast }) => {
             </div>
 
             <div className="mt-4 space-y-2 max-h-[300px] overflow-y-auto scrollbar-hide">
-                <AnimatePresence>
-                    {podcast.timestamp_script.map((item, index) => (
-                        <motion.div
-                            key={index}
-                            ref={(el) => {
-                                subtitleRefs.current[index] = el;
-                            }}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{
-                                opacity: 1,
-                                y: 0,
-                                backgroundColor:
-                                    activeSubtitleIndex === index
-                                        ? 'rgba(1, 170, 79, 0.1)'
-                                        : 'transparent',
-                            }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.2 }}
-                            className={`p-3 rounded-lg cursor-pointer hover:bg-gray-200 hover:cursor-pointer transition-colors ${
-                                activeSubtitleIndex === index
-                                    ? 'border-l-4 border-[#01aa4f]'
-                                    : ''
-                            }`}
-                            onClick={() => handleSubtitleClick(item.startTime)}
-                        >
-                            <div className="flex items-start space-x-2">
-                                <span className="text-xs text-gray-500 min-w-[50px]">
-                                    {formatTime(item.startTime)}
-                                </span>
-                                <span
-                                    className={`${activeSubtitleIndex === index ? 'font-medium' : ''}`}
-                                >
-                                    {item.text}
-                                </span>
+                {(() => {
+                    const transcript = getCurrentTranscript();
+
+                    if (!Array.isArray(transcript) || transcript.length === 0) {
+                        return (
+                            <div className="p-3 text-center text-gray-500">
+                                No transcript available for this recording
                             </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                        );
+                    }
+
+                    return (
+                        <AnimatePresence>
+                            {transcript.map((item, index) => (
+                                <motion.div
+                                    key={index}
+                                    ref={(el) => {
+                                        subtitleRefs.current[index] = el;
+                                    }}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                        backgroundColor:
+                                            activeSubtitleIndex === index
+                                                ? 'rgba(1, 170, 79, 0.1)'
+                                                : 'transparent',
+                                    }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.2 }}
+                                    className={`p-3 rounded-lg cursor-pointer hover:bg-gray-200 hover:cursor-pointer transition-colors ${
+                                        activeSubtitleIndex === index
+                                            ? 'border-l-4 border-[#01aa4f]'
+                                            : ''
+                                    }`}
+                                    onClick={() => {
+                                        if (
+                                            typeof item.startTime === 'number'
+                                        ) {
+                                            handleSubtitleClick(item.startTime);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-start space-x-2">
+                                        <span className="text-xs text-gray-500 min-w-[50px]">
+                                            {formatTime(item.startTime)}
+                                        </span>
+                                        <span
+                                            className={`${activeSubtitleIndex === index ? 'font-medium' : ''}`}
+                                        >
+                                            {item.text || ''}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    );
+                })()}
             </div>
         </div>
     );
