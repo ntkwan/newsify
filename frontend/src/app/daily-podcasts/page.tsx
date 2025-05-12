@@ -18,6 +18,7 @@ export default function DailyPodcastsPage() {
         const fetchPodcasts = async () => {
             try {
                 const response = await fetch('/api/podcasts?page=1&pageSize=4');
+
                 if (!response.ok) {
                     throw new Error(
                         `Failed to fetch podcasts: ${response.status}`,
