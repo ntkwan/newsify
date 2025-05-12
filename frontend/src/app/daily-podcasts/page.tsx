@@ -187,7 +187,7 @@ export default function DailyPodcastsPage() {
                         </div>
                         <div className="flex-1 w-full">
                             <h2 className="text-2xl md:text-3xl font-bold text-[#01aa4f] mb-4">
-                                {currentPodcast.title}
+                                {formatPodcastTitle(currentPodcast.title)}
                             </h2>
                             <div className="flex flex-col md:flex-row gap-4 items-stretch min-h-[192px]">
                                 <div className="bg-[#01aa4f] text-white rounded-lg p-3 text-center flex flex-col justify-center">

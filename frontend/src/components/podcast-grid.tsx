@@ -61,7 +61,6 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
             }
         } catch (error) {
             console.error('Failed to fetch podcasts:', error);
-            // Keep existing podcasts on error
         } finally {
             setIsLoading(false);
         }
@@ -71,7 +70,6 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
         if (currentPage > 1) {
             setCurrentPage((prev) => prev - 1);
         } else {
-            // Go to the last page if we're on the first page
             setCurrentPage(totalPages);
         }
     };
@@ -80,7 +78,6 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
         if (currentPage < totalPages) {
             setCurrentPage((prev) => prev + 1);
         } else {
-            // Go back to the first page if we're on the last page
             setCurrentPage(1);
         }
     };
@@ -116,8 +113,7 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                     </button>
                     <div className="flex gap-6 overflow-hidden p-10 w-[1100px] justify-start">
                         {isLoading
-                            ? // Loading state - exact layout match to real content
-                              Array.from({ length: itemsPerPage }).map(
+                            ? Array.from({ length: itemsPerPage }).map(
                                   (_, index) => (
                                       <div
                                           key={`skeleton-${index}`}
@@ -246,7 +242,7 @@ export const PodcastGrid: React.FC<PodcastGridProps> = ({
                                                   )
                                                       .toString()
                                                       .padStart(2, '0')}{' '}
-                                                  min
+                                                  min(s)
                                               </div>
                                           </div>
                                       </div>
