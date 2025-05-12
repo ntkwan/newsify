@@ -57,9 +57,12 @@ class S3BatchUploader:
             key = obj['Key']
             body = s3.get_object(Bucket=self.bucket_name, Key=key)['Body'].read().decode('utf-8')
             try:
-                article = json.loads(body)
-                for article in articles:
-                    urls.add(article['url'])
+                data = json.loads(body)
+                if isinstance(data, list):
+                    for article in data:
+                        urls.add(article['url'])
+                elif isinstance(data, dict):
+                    urls.add(data['url'])
             except Exception as e:
                 print(f"[!] Failed to load {key}: {e}")
         

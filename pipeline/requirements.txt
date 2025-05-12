@@ -19,3 +19,7 @@ sentence-transformers
 numpy 
 hf_xet
 apache-airflow-providers-apache-spark
+apache-airflow-providers-common-compat==1.2.2
+pyspark==3.5.5
+delta-spark==3.3.0
+
