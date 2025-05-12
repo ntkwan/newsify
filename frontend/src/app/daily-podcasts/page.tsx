@@ -17,7 +17,7 @@ export default function DailyPodcastsPage() {
     useEffect(() => {
         const fetchPodcasts = async () => {
             try {
-                const response = await fetch('/api/podcasts');
+                const response = await fetch('/api/podcasts?page=1&pageSize=4');
                 if (!response.ok) {
                     throw new Error(
                         `Failed to fetch podcasts: ${response.status}`,
@@ -272,7 +272,7 @@ export default function DailyPodcastsPage() {
 
             {podcasts.length > 0 && (
                 <PodcastGrid
-                    podcasts={podcasts}
+                    initialPodcasts={podcasts}
                     currentPodcastId={currentPodcast?.podcast_id}
                     onPodcastSelect={setCurrentPodcast}
                 />
