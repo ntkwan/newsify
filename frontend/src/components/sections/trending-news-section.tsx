@@ -85,7 +85,11 @@ export default function TrendingNewsSection() {
                             >
                                 <NewsCard
                                     image={article.image_url}
-                                    category={article.main_category}
+                                    category={
+                                        article.main_category === 'Other'
+                                            ? 'Social'
+                                            : article.main_category
+                                    }
                                     title={article.title}
                                     isLarge
                                     href={`/articles/${article.trending_id}`}

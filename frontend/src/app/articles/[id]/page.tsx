@@ -176,7 +176,11 @@ export default function ArticlePage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold mb-4">{article.title}</h1>
                 <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                    <span>{article.main_category}</span>
+                    <span>
+                        {article.main_category === 'Other'
+                            ? 'Social'
+                            : article.main_category}
+                    </span>
                     <span>•</span>
                     <span>{formatDate(article.publish_date)}</span>
                 </div>
@@ -257,9 +261,10 @@ export default function ArticlePage() {
                                             <div className="p-4">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                                                        {
-                                                            relatedArticle.main_category
-                                                        }
+                                                        {relatedArticle.main_category ===
+                                                        'Other'
+                                                            ? 'Social'
+                                                            : relatedArticle.main_category}
                                                     </span>
                                                     <span className="text-sm text-gray-500">
                                                         {formatDate(

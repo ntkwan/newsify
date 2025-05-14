@@ -141,7 +141,9 @@ export default function SearchPage() {
                                             className="text-white"
                                             variant="default"
                                         >
-                                            {article.mainCategory}
+                                            {article.mainCategory === 'Other'
+                                                ? 'Social'
+                                                : article.mainCategory}
                                         </Badge>
                                         <span className="text-sm text-muted-foreground">
                                             {new Date(
