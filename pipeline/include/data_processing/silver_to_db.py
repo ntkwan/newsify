@@ -15,6 +15,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import create_engine
 from postgrest.exceptions import APIError
+from pyspark.sql.window import Window
+import builtins
 
 load_dotenv()
 
@@ -25,10 +27,14 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 REDIS_CHANNEL = os.getenv("REDIS_CHANNEL")
 
 def create_spark_session():
+    # .config("spark.master", "spark://spark-master:7077") \
+    # .config("spark.jars", "/opt/spark/jars/*") \
     spark = SparkSession.builder \
-    .appName("RawToSilver") \
-    .config("spark.master", "spark://spark-master:7077") \
-    .config("spark.jars", "/opt/spark/jars/*") \
+    .appName("SilverToDb") \
+    .master("local[*]") \
+    .config("spark.executor.memory", "8g") \
+    .config("spark.network.timeout", "600s") \
+    .config("spark.python.worker.reuse", "true") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.hadoop.fs.s3a.path.style.access", "true") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
@@ -126,14 +132,15 @@ def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
         hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
         hours_str = ",".join([f"'{h}'" for h in hours_to_read])
         
-        df = spark.read.format("delta").load(s3_base_path).where(
-            f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
-        )
-        # print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
         # df = spark.read.format("delta").load(s3_base_path).where(
-        #     "processed_date = '2025-05-10' AND processed_hour = '02'"
+        #     f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
         # )
-        # df.show()
+        # print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
+        
+        # for manual uploading
+        df = spark.read.format("delta").load(s3_base_path).where(
+            "processed_date = '2025-05-14' AND processed_hour = '01'"
+        )
        
         record_count = df.count()
         print(f"Loaded {record_count} records from silver data")
@@ -183,16 +190,26 @@ def generate_embeddings(titles, contents):
     embeddings = model.encode(combined_texts)  
     return embeddings    
 
-def delete_existing_vectors_by_url(collection, urls):
-    for url in urls:
-        expr = f'url == "{url}"'
-        res = collection.query(expr, output_fields=["article_id"])
+def delete_existing_vectors_by_url(collection, urls, batch_size=100):
+    all_ids_to_delete = []
+
+    for i in range(0, len(urls), batch_size):
+        batch_urls = urls[i:i + batch_size]
+        expr = " or ".join([f'url == "{url}"' for url in batch_urls])
+        res = collection.query(expr, output_fields=["article_id", "url"])
         
         if res:
-            ids_to_delete = [r["article_id"] for r in res]
-            ids_str = "[" + ", ".join(str(id_) for id_ in ids_to_delete) + "]"
-            collection.delete(expr=f'article_id in {ids_str}')
-            print(f"Deleted {len(ids_to_delete)} existing vectors for URL: {url}")
+            for r in res:
+                article_id = r.get("article_id")
+                if article_id:
+                    all_ids_to_delete.append(article_id)
+
+    if all_ids_to_delete:
+        ids_str = "[" + ", ".join(str(id_) for id_ in all_ids_to_delete) + "]"
+        collection.delete(expr=f"article_id in {ids_str}")
+        print(f"Deleted {len(all_ids_to_delete)} existing vectors.")
+    else:
+        print("No matching vectors found to delete.")
             
 def save_to_milvus(collection, article_embeds, urls, publish_dates):
     docs = [
@@ -257,6 +274,7 @@ def get_last_ingest_time(supabase: Client) -> str:
         return last_ingest_time
     
 def save_to_supabase(df, table_name, supabase: Client): 
+    # convert publish date to utc0
     df["publish_date"] = df["publish_date"].apply(
         lambda x: x.isoformat() + "+00:00" if pd.notnull(x) else None
     )
@@ -265,16 +283,18 @@ def save_to_supabase(df, table_name, supabase: Client):
     df["uploaded_date"] = uploaded_time
     
     total_rows = len(df)
-    
     print(f"Writing {total_rows} rows to Supabase table: {table_name}")
     
     try:
-        response = supabase.table(table_name).upsert(
-            df.to_dict(orient="records"),
-            on_conflict=["url", "src"]
-        ).execute()
-        
-        print(f"Successfully wrote {total_rows} records to Supabase table: {table_name}")  
+        batch_size = 10000
+        for start in range(0, total_rows, batch_size):
+            batch_df = df.iloc[start:start + batch_size]
+            response = supabase.table(table_name).upsert(
+                batch_df.to_dict(orient="records"),
+                on_conflict=["url", "src"]
+            ).execute()
+            print(f"Successfully wrote rows {start} to {start + len(batch_df)}")
+       
         return uploaded_time, total_rows    
     
     except APIError as e:
@@ -295,8 +315,6 @@ def update_control_table(supabase: Client, max_ingest_time):
 def main_process(spark, s3_base_path, supabase_url, supabase_key, table_name, process_date):
     try:
         # Connect to Supabase
-        # print(f"supabase_url: {supabase_url}")
-        # print(f"supabase_key: {supabase_key}")
         supabase: Client = create_client(supabase_url, supabase_key)
         last_ingest_time = get_last_ingest_time(supabase)
         
@@ -357,14 +375,25 @@ def main_process(spark, s3_base_path, supabase_url, supabase_key, table_name, pr
             "url", "src", "language", "title", "content", "image_url", 
             "publish_date", "time_reading", "author", "main_category", "categories"
         )
+        # Add row index 
+        windowSpec = Window.orderBy(monotonically_increasing_id())
+        indexed_df = upsert_df.withColumn("index", row_number().over(windowSpec) - 1)
         
-        df = upsert_df.toPandas() 
-        if df.empty:
-            print("No data to write to Supabase after conversion")
-            return None
-       
-        # upload data to supabase
-        uploaded_time, total_rows = save_to_supabase(df, table_name, supabase)
+        total_rows = indexed_df.count()
+        batch_size = 10000
+
+        # save data to supabase with batch size 
+        for i in range(0, total_rows, batch_size):
+            print(f"Processing batch {i} to {builtins.min(i + batch_size, total_rows)}")
+            batch_df = indexed_df.filter((col("index") >= i) & (col("index") < i + batch_size)).drop("index")
+            
+            try:
+                df = batch_df.toPandas()
+                if not df.empty:
+                    uploaded_time, total_written = save_to_supabase(df, table_name, supabase)
+            except Exception as e:
+                print(f"Error at batch {i}-{i + batch_size}: {e}")
+                continue
         
         if total_rows > 0:
             # send notification
