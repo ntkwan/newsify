@@ -14,6 +14,7 @@ def create_spark_session():
     .appName("SilverToGold") \
     .config("spark.master", "spark://spark-master:7077") \
     .config("spark.jars", "/opt/spark/jars/*") \
+    .config("spark.executor.memory", "4g") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.hadoop.fs.s3a.path.style.access", "true") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
@@ -45,19 +46,21 @@ def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
         hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
         hours_str = ",".join([f"'{h}'" for h in hours_to_read])
         
+        # for auto uploading, default today
         df = spark.read.format("delta").load(s3_base_path).where(
             f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
         )
         print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
         
-        # df = spark.read.format("delta").load(s3_base_path).where(
-        #     "processed_date = '2025-05-09' AND processed_hour = '23'"
+        # for manual uploading
+        #     "processed_date = '2025-05-14' AND processed_hour = '01'"
         # )
-        # df.show()
        
         record_count = df.count()
         print(f"Loaded {record_count} records from silver data")
+        
         return df if record_count > 0 else spark.createDataFrame([], df.schema)
+    
     except Exception as e:
         print(f"Error reading data from silver: {str(e)}")
         raise

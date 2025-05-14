@@ -27,11 +27,10 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 REDIS_CHANNEL = os.getenv("REDIS_CHANNEL")
 
 def create_spark_session():
-    # .config("spark.master", "spark://spark-master:7077") \
-    # .config("spark.jars", "/opt/spark/jars/*") \
     spark = SparkSession.builder \
     .appName("SilverToDb") \
-    .master("local[*]") \
+    .config("spark.master", "spark://spark-master:7077") \
+    .config("spark.jars", "/opt/spark/jars/*") \
     .config("spark.executor.memory", "8g") \
     .config("spark.network.timeout", "600s") \
     .config("spark.python.worker.reuse", "true") \
@@ -132,15 +131,16 @@ def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
         hours_to_read = [str(i).zfill(2) for i in range(start_hour, end_hour + 1)]
         hours_str = ",".join([f"'{h}'" for h in hours_to_read])
         
-        # df = spark.read.format("delta").load(s3_base_path).where(
-        #     f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
-        # )
-        # print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
-        
-        # for manual uploading
+        # for auto uploading default today
         df = spark.read.format("delta").load(s3_base_path).where(
-            "processed_date = '2025-05-14' AND processed_hour = '01'"
+            f"processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})"
         )
+        print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
+        
+        for manual uploading
+        # df = spark.read.format("delta").load(s3_base_path).where(
+        #     "processed_date = '2025-05-14' AND processed_hour = '00'"
+        # )
        
         record_count = df.count()
         print(f"Loaded {record_count} records from silver data")
