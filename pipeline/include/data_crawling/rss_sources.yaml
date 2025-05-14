@@ -1,3 +1,14 @@
+vogue_lifestyle: https://rss.app/feeds/CRcoeQvYbCsulIin.xml
+countryliving_lifestyle: https://rss.app/feeds/NiOtsT6UtrNp3rsb.xml
+time_business: https://rss.app/feeds/pCGZD6yLoJalevJw.xml
+time_politics: https://rss.app/feeds/9hbXJbo2Bw8L0DIi.xml 
+time_world: https://rss.app/feeds/asYefkSJApKp2JsN.xml
+huffpost_politics: https://rss.app/feeds/EDNqJnqftba4oePn.xml
+newyorker_culture: https://rss.app/feeds/dY1nEncXbg5X7A18.xml
+newyorker_entertainment: 
+economist_business: https://rss.app/feeds/t0vnF9JgYm1r5dO2.xml
+rss_climate: https://rss.app/feeds/tf5swXW4UdxoFLMB.xml
+
 # guardian
 guardian_arts_and_design: https://www.theguardian.com/artanddesign/rss  
 guardian_books: https://www.theguardian.com/books/rss  
@@ -21,9 +32,6 @@ guardian_technology: https://www.theguardian.com/uk/technology/rss
 guardian_top_stories : https://www.theguardian.com/uk/rss  
 guardian_travel : https://www.theguardian.com/uk/travel/rss  
 guardian_world_news : https://www.theguardian.com/world/rss 
-
-
-
 
 # cnn
 # cnn_travel: http://rss.cnn.com/rss/cnn_travel.rss
