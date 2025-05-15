@@ -18,13 +18,35 @@
 
 <img align="right" src="/media/daily_podcast_page.gif">
 
-<br><br><br><br><br><br>
+<br>
 
 ### Trending news ranking from multiple sources
 - Periodically update news from multiple sources
-- Display category top picks based on "trending score"
+- Display category top picks based on `trending score`
+
+<br>
 
 <img align="right" src="/media/home_page.gif">
 
-<br><br>
+<br>
+
+### Article summary and recommendation
+- Summarize article and display original content to read more about content
+- Suggest related articles based on article's title and content
+
+<br>
+
+<img align="right" src="/media/article_page.gif">
+
+<br>
+
+### Quick articles searching
+- Allow to search for articles based on their title and content with low response time
+
+<br>
+
+<img align="right" src="/media/search_page.gif">
+
+<br>
+
 
