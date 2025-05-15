@@ -26,12 +26,13 @@ REDIS_USERNAME = os.getenv("REDIS_USERNAME")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 REDIS_CHANNEL = os.getenv("REDIS_CHANNEL")
 
+    # .config("spark.master", "spark://spark-master:7077") \
+    # .config("spark.jars", "/opt/spark/jars/*") \
 def create_spark_session():
     spark = SparkSession.builder \
     .appName("SilverToDb") \
     .config("spark.master", "spark://spark-master:7077") \
     .config("spark.jars", "/opt/spark/jars/*") \
-    .config("spark.executor.memory", "8g") \
     .config("spark.network.timeout", "600s") \
     .config("spark.python.worker.reuse", "true") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
@@ -137,7 +138,7 @@ def read_data_silver(spark, s3_base_path, process_date, start_hour, end_hour):
         )
         print(f"Running query: processed_date = '{ingest_date}' AND processed_hour IN ({hours_str})")
         
-        for manual uploading
+        # for manual uploading
         # df = spark.read.format("delta").load(s3_base_path).where(
         #     "processed_date = '2025-05-14' AND processed_hour = '00'"
         # )

@@ -16,13 +16,13 @@ from functools import reduce
 
 def create_spark_session():
     load_dotenv()
+    # .config("spark.master", "spark://spark-master:7077") \
+    # .config("spark.jars", "/opt/spark/jars/*") \
 
     spark = SparkSession.builder \
     .appName("BronzeToSilver") \
     .config("spark.master", "spark://spark-master:7077") \
     .config("spark.jars", "/opt/spark/jars/*") \
-    .config("spark.executor.memory", "6g") \
-    .config("spark.driver.memory", "6g") \
     .config("spark.python.worker.timeout", "600") \
     .config("spark.eventLog.enabled", "false") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
@@ -406,7 +406,6 @@ def save_to_silver(df, s3_output_path, category_map):
             schema_columns.append("processed_hour")    
         result_df = result_df.select(schema_columns)
         
-        @
         # insert valid data to s3
         if DeltaTable.isDeltaTable(spark, s3_output_path):
             delta_table = DeltaTable.forPath(spark, s3_output_path)
