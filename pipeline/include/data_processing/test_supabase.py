@@ -7,7 +7,7 @@ supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# Lấy tất cả dữ liệu từ bảng Articles
+# get all data from Article table
 response = supabase.table("control_table").select("*").execute()
 
 print(response.data)
