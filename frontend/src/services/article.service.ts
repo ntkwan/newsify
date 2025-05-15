@@ -43,7 +43,7 @@ export class ArticleService {
 export async function getTrendingArticles(
     page: number = 1,
     pageSize: number = 10,
-    minScore: number = 0.5,
+    minScore: number = 0.3,
 ): Promise<TrendingArticlesResponse> {
     const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/articles/trending?page=${page}&pageSize=${pageSize}&minScore=${minScore}`;
 
