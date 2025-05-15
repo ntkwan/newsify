@@ -1,29 +1,38 @@
+wired_news: https://www.wired.com/feed/rss
+techcrunch_technplogy: https://techcrunch.com/feed/
+vogue_lifestyle: https://rss.app/feeds/CRcoeQvYbCsulIin.xml
+countryliving_lifestyle: https://rss.app/feeds/NiOtsT6UtrNp3rsb.xml
+time_business: https://rss.app/feeds/pCGZD6yLoJalevJw.xml
+time_politics: https://rss.app/feeds/9hbXJbo2Bw8L0DIi.xml 
+time_world: https://rss.app/feeds/asYefkSJApKp2JsN.xml
+huffpost_politics: https://rss.app/feeds/EDNqJnqftba4oePn.xml
+newyorker_culture: https://rss.app/feeds/dY1nEncXbg5X7A18.xml
+economist_business: https://rss.app/feeds/t0vnF9JgYm1r5dO2.xml
+rss_climate: https://rss.app/feeds/tf5swXW4UdxoFLMB.xml
+
 # guardian
-guardian_arts_and_design: https://www.theguardian.com/artanddesign/rss  
-guardian_books: https://www.theguardian.com/books/rss  
-guardian_business: https://www.theguardian.com/uk/business/rss  
-guardian_culture: https://www.theguardian.com/uk/culture/rss  
-guardian_environment: https://www.theguardian.com/uk/environment/rss  
-guardian_fashion: https://www.theguardian.com/fashion/rss  
-guardian_film: https://www.theguardian.com/uk/film/rss  
-guardian_football: https://www.theguardian.com/football/rss  
-guardian_cricket: https://www.theguardian.com/cricket/rss  
-guardian_cycling: https://www.theguardian.com/cycling/rss  
-guardian_f1: https://www.theguardian.com/f1/rss  
-guardian_lifestyle: https://www.theguardian.com/uk/lifeandstyle/rss  
-guardian_money: https://www.theguardian.com/uk/money/rss  
-guardian_music: https://www.theguardian.com/music/rss  
-guardian_obituaries: https://www.theguardian.com/tone/obituaries/rss  
-guardian_science: https://www.theguardian.com/science/rss  
-guardian_sport: https://www.theguardian.com/uk/sport/rss  
-guardian_stage: https://www.theguardian.com/stage/rss  
-guardian_technology: https://www.theguardian.com/uk/technology/rss  
-guardian_top_stories : https://www.theguardian.com/uk/rss  
-guardian_travel : https://www.theguardian.com/uk/travel/rss  
-guardian_world_news : https://www.theguardian.com/world/rss 
-
-
-
+# guardian_arts_and_design: https://www.theguardian.com/artanddesign/rss  
+# guardian_books: https://www.theguardian.com/books/rss  
+# guardian_business: https://www.theguardian.com/uk/business/rss  
+# guardian_culture: https://www.theguardian.com/uk/culture/rss  
+# guardian_environment: https://www.theguardian.com/uk/environment/rss  
+# guardian_fashion: https://www.theguardian.com/fashion/rss  
+# guardian_film: https://www.theguardian.com/uk/film/rss  
+# guardian_football: https://www.theguardian.com/football/rss  
+# guardian_cricket: https://www.theguardian.com/cricket/rss  
+# guardian_cycling: https://www.theguardian.com/cycling/rss  
+# guardian_f1: https://www.theguardian.com/f1/rss  
+# guardian_lifestyle: https://www.theguardian.com/uk/lifeandstyle/rss  
+# guardian_money: https://www.theguardian.com/uk/money/rss  
+# guardian_music: https://www.theguardian.com/music/rss  
+# guardian_obituaries: https://www.theguardian.com/tone/obituaries/rss  
+# guardian_science: https://www.theguardian.com/science/rss  
+# guardian_sport: https://www.theguardian.com/uk/sport/rss  
+# guardian_stage: https://www.theguardian.com/stage/rss  
+# guardian_technology: https://www.theguardian.com/uk/technology/rss  
+# guardian_top_stories : https://www.theguardian.com/uk/rss  
+# guardian_travel : https://www.theguardian.com/uk/travel/rss  
+# guardian_world_news : https://www.theguardian.com/world/rss 
 
 # cnn
 # cnn_travel: http://rss.cnn.com/rss/cnn_travel.rss

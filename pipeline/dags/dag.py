@@ -22,7 +22,7 @@ dag = DAG(
     'news_processing',
     default_args=default_args,
     description='DAG for data pipeline',
-    # schedule_interval='0 * * * *', # every hour,``
+    # schedule_interval='0 * * * *', # every hour,
     schedule_interval='0 0,5,11,17 * * *', # 4 times/day: 00:00, 05:00, 11:00, 17:00
     catchup=False
 )
@@ -39,8 +39,6 @@ run_upload_to_bronze = SparkSubmitOperator(
     application='./include/data_processing/to_bronze.py',
     conn_id="spark_default",
     application_args=["--date", "{{ ds }}"],
-    verbose = True,
-    # packages="io.delta:delta-core_2.12:2.4.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262,org.apache.hadoop:hadoop-common:3.3.4",
     dag=dag
 )
 
@@ -49,7 +47,6 @@ run_upload_to_silver = SparkSubmitOperator(
     application='./include/data_processing/to_silver.py',
     conn_id="spark_default",
     application_args=["--date", "{{ ds }}"],
-    # packages="io.delta:delta-core_2.12:2.4.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262, org.apache.hadoop:hadoop-common:3.3.4",
     dag=dag
 )
 
@@ -57,7 +54,6 @@ run_upload_to_db = SparkSubmitOperator(
     task_id='run_upload_to_db',
     application='./include/data_processing/silver_to_db.py',
     conn_id="spark_default",
-    # packages="io.delta:delta-core_2.12:2.4.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262, org.apache.hadoop:hadoop-common:3.3.4",
     dag=dag
 )
 
@@ -65,7 +61,6 @@ run_upload_to_gold = SparkSubmitOperator(
     task_id='run_upload_to_gold',
     application='./include/data_processing/silver_to_gold.py',
     conn_id="spark_default",
-    # packages="io.delta:delta-core_2.12:2.4.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262, org.apache.hadoop:hadoop-common:3.3.4",
     dag=dag
 )
 

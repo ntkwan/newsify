@@ -16,6 +16,8 @@ from functools import reduce
 
 def create_spark_session():
     load_dotenv()
+    # .config("spark.master", "spark://spark-master:7077") \
+    # .config("spark.jars", "/opt/spark/jars/*") \
 
     spark = SparkSession.builder \
     .appName("BronzeToSilver") \
@@ -130,9 +132,12 @@ def parse_to_utc(publish_date_str):
             "UTC": pytz.UTC
         }
         dt = parser.parse(publish_date_str, fuzzy=True, tzinfos=tzinfos, dayfirst=False)
+        
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=pytz.UTC)
+            
         return dt.astimezone(pytz.UTC)
+    
     except Exception as e:
         print(f"Failed to parse date: {publish_date_str}, error: {str(e)}")
         return None
@@ -141,6 +146,7 @@ parse_to_utc_udf = udf(parse_to_utc, TimestampType())
 
 def process_publish_date(df: DataFrame) -> DataFrame:
     df = df.cache()
+    
     df = df.withColumn(
         "publish_date",
         when(col("publish_date") == "No publish date", None)
@@ -160,6 +166,7 @@ def process_publish_date(df: DataFrame) -> DataFrame:
     print("Sample publish_date and cleaned_publish_date:")
     df.select("publish_date", "cleaned_publish_date").show(5, truncate=False)
     
+    # define some date formats
     date_formats = [
         "h:mm a z, EEE MMMM dd, yyyy",  
         "yyyy-MM-dd HH:mm:ss",
@@ -174,6 +181,7 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         "EEE MMM dd yyyy HH:mm:ss",
     ]
     
+    # convert publish date to timestamp type
     df = df.withColumn(
         "publish_date_utc",
         when(col("cleaned_publish_date").isNotNull(),
@@ -184,6 +192,7 @@ def process_publish_date(df: DataFrame) -> DataFrame:
         )
     )
     
+    # convert publish date to utc type
     df = df.withColumn(
         "publish_date_utc",
         when(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull(),
@@ -194,7 +203,7 @@ def process_publish_date(df: DataFrame) -> DataFrame:
     df = df.withColumn(
         "publish_date_utc",
         when(col("publish_date_utc").isNotNull(),
-             from_utc_timestamp(col("publish_date_utc"), "UTC"))
+            from_utc_timestamp(col("publish_date_utc"), "UTC"))
     )
     
     print("Sample cleaned_publish_date and publish_date_utc:")
@@ -294,12 +303,15 @@ def deduplicate_news(spark, cleaned_news_df, s3_output_path):
         silver_df = spark.read.format("delta").load(s3_output_path)
         silver_df.select("src", "url").createOrReplaceTempView("blogs_list")
         print(f"Existing silver data after validation: {silver_df.count()} records")
+        
     except Exception as e:
         print(f"No existing silver data found or error: {str(e)}")
+        
         empty_df = spark.createDataFrame([], StructType([
             StructField("src", StringType(), False),
             StructField("url", StringType(), False)
         ]))
+        
         empty_df.createOrReplaceTempView("blogs_list")
     
     result_df = spark.sql("""
@@ -340,8 +352,7 @@ def save_to_silver(df, s3_output_path, category_map):
         print("Start processing publish_date...")
         valid_df = process_publish_date(valid_df).cache()
         
-        print(f"After cleaning: {valid_df.count()} valid records, {error_df.count()} error records")
-        
+        # get unparseable publish date
         unparseable_df = valid_df.filter(col("publish_date_utc").isNull() & col("cleaned_publish_date").isNotNull())
         unparseable_count = unparseable_df.count()
          
@@ -355,6 +366,7 @@ def save_to_silver(df, s3_output_path, category_map):
         error_df = error_df.cache()
         error_count = error_df.count()
         
+        # save error records to s3
         if error_count > 0:
             print(f"Saving {error_count} error records...")
             try:
@@ -369,7 +381,7 @@ def save_to_silver(df, s3_output_path, category_map):
         
         error_df.unpersist()
        
-        # deduplicate
+        # deduplicate data
         print("Deduplicating valid data...")
         result_df = deduplicate_news(spark, valid_df, s3_output_path)
         print(f"New unique records after deduplication: {result_df.count()}")
@@ -394,6 +406,7 @@ def save_to_silver(df, s3_output_path, category_map):
             schema_columns.append("processed_hour")    
         result_df = result_df.select(schema_columns)
         
+        # insert valid data to s3
         if DeltaTable.isDeltaTable(spark, s3_output_path):
             delta_table = DeltaTable.forPath(spark, s3_output_path)
             delta_table.alias("silver").merge(
@@ -428,7 +441,7 @@ if __name__ == "__main__":
     s3_output_path = "s3a://newsifyteam12/silver_data/blogs_list"
 
     args = parse_args()
-    # Lấy ngày từ tham số hoặc mặc định là hôm nay
+    # get date from args or default today
     process_date = args.date or date.today().strftime('%Y-%m-%d')
     process_hour = args.hours or date.today().strftime('%h')
     
@@ -439,6 +452,7 @@ if __name__ == "__main__":
     news_df = read_data_bronze(spark, s3_input_path, process_date=args.date, hours=args.hours)
     print(f"Raw data loaded: {news_df.count()} records")
     
+    # define dict for fuzzy matching
     category_map = {
         "Sports": ["sports", "football", "nba", "tennis", "soccer", "cricket", "olympics", ],
         "Technology": ["tech", "technology", "gadgets", "ai", "software", "hardware", "computing"],

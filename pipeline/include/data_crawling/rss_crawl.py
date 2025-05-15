@@ -25,6 +25,7 @@ PROXIES = [
 def get_rss_urls():
     base_dir = os.path.dirname(__file__)  
     file_path = os.path.join(base_dir, 'rss_sources.yaml')
+    
     with open(file_path, 'r') as f:
         rss_map = yaml.safe_load(f)
     return rss_map
@@ -77,16 +78,19 @@ def extract_content(article_url):
         proxy = random.choice(PROXIES) if PROXIES else None
         proxies = {"http": proxy, "https": proxy} if proxy else None
         
+        # set time sleep to avoid being banned
         time.sleep(random.uniform(1.0, 3.0))
         
         response = requests.get(article_url, headers=headers, proxies=proxies, timeout=20, verify=True)
         response.raise_for_status()
+        
         if response.status_code == 200:
             article = Article(article_url)
             article.set_html(response.text)
             article.download_state = 2 
-        # article.download()
+            # article.download()
             article.parse()
+            
             return {
                 "src": article.source_url or "No source",
                 "title": article.title or "No title",
@@ -95,9 +99,11 @@ def extract_content(article_url):
                 "image_url": article.top_image or "",
                 "publish_date": article.publish_date.isoformat() if article.publish_date else None,
             }
+            
         else:
             print(f"[!] Failed to retrieve content from {article_url} with status code {response.status_code}")
             return None
+        
     except Exception as e:
         print(f"[!] Failed to extract {article_url}: {e}")
         return None
@@ -151,7 +157,10 @@ def get_articles_full():
         if not url or url in visited_urls:
             return None
         visited_urls.add(url)
+        
+        # set time sleep to avoid being banned
         time.sleep(random.uniform(0.5, 1.5)) 
+        
         return normalize_and_enrich(entry, category)
     
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -176,8 +185,10 @@ if __name__ == "__main__":
     print(f"Total articles fetched: {len(articles)}")
    
     uploader = S3BatchUploader()
+    
     for article in articles:
         uploader.add_item(article)
+        
     uploader.finish()
 
     

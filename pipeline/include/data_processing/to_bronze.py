@@ -92,6 +92,7 @@ def save_to_bronze(df, s3_output_path: str):
     try:
         if "day" in df.columns:
             df = df.withColumn("day", col("day").cast("integer"))
+            
         df = df.withColumn("ingest_time", current_timestamp()) \
             .withColumn("ingest_date", date_format(col("ingest_time"), "yyyy-MM-dd")) \
             .withColumn("ingest_hour", date_format(col("ingest_time"), "HH"))
@@ -105,13 +106,16 @@ def save_to_bronze(df, s3_output_path: str):
         print(f"Successfully saved data to bronze layer: {s3_output_path}")
         
         df = df.cache()
+        
         error_df = df.filter(col("_corrupt").isNotNull())
         if error_df.count() > 0:
             error_df.write.format("delta") \
                 .mode("append") \
                 .save(f"{s3_output_path}_errors")
             print(f"Saved {error_df.count()} corrupt records to {s3_output_path}_errors")
+            
         df.unpersist()
+        
     except Exception as e:
         print(f"Error saving DataFrame to bronze layer: {str(e)}")
         print("Dataframe schema:")
@@ -128,11 +132,11 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    # Lấy ngày từ tham số hoặc mặc định là hôm nay
+    # get date grom args or default today
     process_date = args.date or date.today().strftime('%Y-%m-%d')
     print(f"Processing raw data for date: {process_date}")
 
-    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/*.json"
+    s3_input_path = f"s3a://newsifyteam12/raw_data/{process_date}/dump/*.json"
     s3_output_path = "s3a://newsifyteam12/bronze_data/blogs_list"
     
     spark = create_spark_session()
