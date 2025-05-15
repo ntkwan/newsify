@@ -5,7 +5,7 @@ import { ArticleRepository } from '../articles/article.repository';
 @Injectable()
 export class SyncService implements OnModuleInit {
     private readonly logger = new Logger(SyncService.name);
-    private readonly batchSize = 100;
+    private readonly batchSize = 10000;
 
     constructor(
         private readonly searchService: SearchService,
