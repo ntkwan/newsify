@@ -44,6 +44,56 @@ python sync_do_tables.py
 
 If you encounter database connection errors like `relation "public.Podcast" does not exist`, run the initialization script to create the table automatically.
 
+## Testing
+
+This project includes a comprehensive test suite built with pytest. The tests cover all major components of the service, including file uploading, article processing, podcast generation, and Redis messaging.
+
+### Running Tests
+
+```bash
+# Run all tests with coverage report
+./run_tests.sh
+
+# Run a specific test file
+python3 -m pytest -v tests/test_upload_service.py
+
+# Run tests with specific marker
+python3 -m pytest -v -m "asyncio"
+```
+
+### Test Documentation
+
+For more detailed information about the testing approach and implementation:
+
+- `TESTING.md` - Overview of the testing strategy and tools
+- `TEST_REPORT.md` - Detailed report of test coverage and results
+
+### Key Testing Features
+
+- **Mocking External Dependencies**: All external services (OpenAI, S3, databases) are mocked
+- **Asynchronous Testing**: Full support for testing async functions with pytest-asyncio
+- **Comprehensive Fixtures**: Reusable test fixtures in conftest.py
+- **Coverage Reporting**: Test coverage metrics with pytest-cov
+- **Integration Tests**: Tests for end-to-end workflows
+
+For more details on the testing approach and implementation, please refer to:
+- [TESTING.md](TESTING.md) - Testing guide and best practices
+- [TEST_REPORT.md](TEST_REPORT.md) - Detailed test coverage and methodology
+
+### Running Locally with Docker Compose
+
+For local development, you can use Docker Compose to start the required dependencies:
+
+```bash
+docker-compose up -d
+```
+
+This will start:
+- Redis for messaging
+- PostgreSQL for local development
+
+Make sure to update your `.env` file to use these local services.
+
 ## API Endpoints
 
 ### Generate Podcast
@@ -94,8 +144,44 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001
 
 ### Using Docker
 
+1. Create an `.env` file based on the `.env.example` template:
+
 ```bash
-docker-compose up
+cp .env.example .env
+```
+
+2. Edit the `.env` file and fill in your credentials for:
+   - OpenAI API key
+   - Google Gemini API key
+   - Digital Ocean Spaces configuration
+
+3. Start the services using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+This will start:
+- PostgreSQL database for podcast storage
+- Redis for message queuing and event handling
+- The Audio Service API
+
+4. Check the logs:
+
+```bash
+docker-compose logs -f
+```
+
+5. Stop the services:
+
+```bash
+docker-compose down
+```
+
+To destroy all data volumes and start fresh:
+
+```bash
+docker-compose down -v
 ```
 
 ## Troubleshooting

@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: audio_service_postgres
+    environment:
+      POSTGRES_USER: audiouser
+      POSTGRES_PASSWORD: audiopassword
+      POSTGRES_DB: audiodb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U audiouser -d audiodb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - audio_network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: audio_service_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - audio_network
+    restart: unless-stopped
+
+  # The audio service itself
+  audio_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: audio_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    environment:
+      - ENV=dev
+      - DATABASE_URL=postgresql://audiouser:audiopassword@postgres:5432/audiodb
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_GEMINI_API_KEY=${GOOGLE_GEMINI_API_KEY}
+      - DO_SPACES_KEY=${DO_SPACES_KEY}
+      - DO_SPACES_SECRET=${DO_SPACES_SECRET}
+      - DO_SPACES_ENDPOINT=${DO_SPACES_ENDPOINT}
+      - DO_SPACES_BUCKET=${DO_SPACES_BUCKET}
+      - DO_SPACES_REGION=${DO_SPACES_REGION}
+    networks:
+      - audio_network
+    restart: unless-stopped
+
+networks:
+  audio_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

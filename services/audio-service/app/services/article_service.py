@@ -70,7 +70,7 @@ class ArticleService:
             return articles
         except Exception as e:
             print(f"Error loading articles from database: {str(e)}")
-            return await self._load_articles_from_file()
+            return []  # Return empty list if database access fails
     
     async def get_articles_between_dates(self, start_time: str, end_time: str, db: Optional[Session] = None) -> List[Article]:
         """
@@ -111,19 +111,28 @@ class ArticleService:
                 for column, value in zip(articles_table.columns.keys(), row):
                     row_dict[column] = value
                 
-                article_date = row_dict.get("publish_date")
+                article_date = row_dict.get("publish_date")                # Ensure categories is a list
+                categories = row_dict.get("categories", [])
+                if isinstance(categories, str):
+                    try:
+                        # Try to parse JSON string if it's stored that way
+                        categories = json.loads(categories)
+                    except (json.JSONDecodeError, TypeError):
+                        # If it's just a regular string, make it into a list
+                        categories = [categories]
                 
                 article = Article(
                     url=row_dict.get("url", ""),
                     src=row_dict.get("src", ""),
                     language=row_dict.get("language"),
-                    categories=row_dict.get("categories", []),
+                    categories=categories if isinstance(categories, list) else [],
                     main_category=row_dict.get("main_category"),
                     title=row_dict.get("title", ""),
                     content=row_dict.get("content", ""),
-                    image_url=row_dict.get("image_url"),
-                    publish_date=article_date.isoformat() if article_date else None,
+                    image_url=row_dict.get("image_url"),                    publish_date=article_date.isoformat() if article_date and hasattr(article_date, 'isoformat') else article_date,
                     author=row_dict.get("author"),
+                    summary=row_dict.get("summary"),
+                    uploaded_date=row_dict.get("uploaded_date", None),
                 )
                 articles.append(article)
             
