@@ -1,19 +1,19 @@
+import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { UsersModule } from './users/users.module';
 import pg from 'pg';
-import { User } from './users/entities/user.model';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { AuthModule } from './auth/auth.module';
-import { HttpModule } from '@nestjs/axios';
-import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { ArticlesModule } from './articles/articles.module';
 import { Article } from './articles/entities/article.model';
-import { PodcastsModule } from './podcasts/podcasts.module';
+import { AuthModule } from './auth/auth.module';
 import { Podcast } from './podcasts/entities/podcast.model';
+import { PodcastsModule } from './podcasts/podcasts.module';
+import { User } from './users/entities/user.model';
+import { UsersModule } from './users/users.module';
 
 @Module({
     imports: [
@@ -49,9 +49,6 @@ import { Podcast } from './podcasts/entities/podcast.model';
                     port: Number(configService.get<string>('REDIS_PORT')),
                     username: configService.get<string>('REDIS_USER'),
                     password: configService.get<string>('REDIS_PASSWORD'),
-                    tls: {
-                        rejectUnauthorized: true,
-                    },
                     retryStrategy: (times: number) => {
                         const delay = Math.min(times * 50, 2000);
                         return delay;
