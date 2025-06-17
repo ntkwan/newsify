@@ -111,28 +111,19 @@ class ArticleService:
                 for column, value in zip(articles_table.columns.keys(), row):
                     row_dict[column] = value
                 
-                article_date = row_dict.get("publish_date")                # Ensure categories is a list
-                categories = row_dict.get("categories", [])
-                if isinstance(categories, str):
-                    try:
-                        # Try to parse JSON string if it's stored that way
-                        categories = json.loads(categories)
-                    except (json.JSONDecodeError, TypeError):
-                        # If it's just a regular string, make it into a list
-                        categories = [categories]
+                article_date = row_dict.get("publish_date")
                 
                 article = Article(
                     url=row_dict.get("url", ""),
                     src=row_dict.get("src", ""),
                     language=row_dict.get("language"),
-                    categories=categories if isinstance(categories, list) else [],
+                    categories=row_dict.get("categories", []),
                     main_category=row_dict.get("main_category"),
                     title=row_dict.get("title", ""),
                     content=row_dict.get("content", ""),
-                    image_url=row_dict.get("image_url"),                    publish_date=article_date.isoformat() if article_date and hasattr(article_date, 'isoformat') else article_date,
+                    image_url=row_dict.get("image_url"),
+                    publish_date=article_date.isoformat() if article_date else None,
                     author=row_dict.get("author"),
-                    summary=row_dict.get("summary"),
-                    uploaded_date=row_dict.get("uploaded_date", None),
                 )
                 articles.append(article)
             
