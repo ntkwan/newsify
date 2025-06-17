@@ -1,129 +1,103 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: audio_service_postgres
-    environment:
-      POSTGRES_USER: audiouser
-      POSTGRES_PASSWORD: audiopassword
-      POSTGRES_DB: audiodb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U audiouser -d audiodb"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    networks:
-      - audio_network
-    restart: unless-stopped
+    postgres:
+        image: postgres:15-alpine
+        container_name: audio_service_postgres
+        environment:
+            POSTGRES_USER: audiouser
+            POSTGRES_PASSWORD: audiopassword
+            POSTGRES_DB: audiodb
+        ports:
+            - '5432:5432'
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U audiouser -d audiodb']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        networks:
+            - audio_network
+        restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    container_name: audio_service_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --requirepass redis_password
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - audio_network
-    restart: unless-stopped
+    redis:
+        image: redis:7-alpine
+        container_name: audio_service_redis
+        ports:
+            - '6379:6379'
+        volumes:
+            - redis_data:/data
+        command: redis-server --appendonly yes --requirepass redis_password
+        healthcheck:
+            test: ['CMD', 'redis-cli', '-a', 'redis_password', 'ping']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - audio_network
+        restart: unless-stopped
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: audio_service_elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - cluster.name=audio-cluster
-      - node.name=audio-node
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    networks:
-      - audio_network
-    restart: unless-stopped
+    elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+        container_name: audio_service_elasticsearch
+        environment:
+            - discovery.type=single-node
+            - xpack.security.enabled=false
+            - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+            - cluster.name=audio-cluster
+            - node.name=audio-node
+        ports:
+            - '9200:9200'
+            - '9300:9300'
+        volumes:
+            - elasticsearch_data:/usr/share/elasticsearch/data
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'curl -f http://localhost:9200/_cluster/health || exit 1',
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 40s
+        networks:
+            - audio_network
+        restart: unless-stopped
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.0
-    container_name: audio_service_kibana
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - SERVER_NAME=kibana
-      - SERVER_HOST=0.0.0.0
-    ports:
-      - "5601:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - audio_network
-    restart: unless-stopped
-
-  # The audio service itself
-  audio_service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: audio_service
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    ports:
-      - "8001:8001"
-    environment:
-      - ENV=dev
-      - DATABASE_URL=postgresql://audiouser:audiopassword@postgres:5432/audiodb
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis_password
-      - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTICSEARCH_PORT=9200
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_GEMINI_API_KEY=${GOOGLE_GEMINI_API_KEY}
-      - DO_SPACES_KEY=${DO_SPACES_KEY}
-      - DO_SPACES_SECRET=${DO_SPACES_SECRET}
-      - DO_SPACES_ENDPOINT=${DO_SPACES_ENDPOINT}
-      - DO_SPACES_BUCKET=${DO_SPACES_BUCKET}
-      - DO_SPACES_REGION=${DO_SPACES_REGION}
-    networks:
-      - audio_network
-    restart: unless-stopped
+    kibana:
+        image: docker.elastic.co/kibana/kibana:8.11.0
+        container_name: audio_service_kibana
+        environment:
+            - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+            - SERVER_NAME=kibana
+            - SERVER_HOST=0.0.0.0
+        ports:
+            - '5601:5601'
+        depends_on:
+            elasticsearch:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'curl -f http://localhost:5601/api/status || exit 1',
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+        networks:
+            - audio_network
+        restart: unless-stopped
 
 networks:
-  audio_network:
-    driver: bridge
+    audio_network:
+        driver: bridge
 
 volumes:
-  postgres_data:
-  redis_data:
-  elasticsearch_data:
+    postgres_data:
+    redis_data:
+    elasticsearch_data:
