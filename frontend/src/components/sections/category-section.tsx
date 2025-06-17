@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { TrendingArticle } from '@/types/article';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 interface CategoryArticle {
     category: string;

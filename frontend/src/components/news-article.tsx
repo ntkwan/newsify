@@ -13,9 +13,9 @@
  * @param {Article} props.article - The article data to display
  */
 
+import { Article } from '@/types/article';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Article } from '@/types/article';
 
 interface NewsArticleProps {
     article: Article;
@@ -38,18 +38,25 @@ export default function NewsArticle({ article }: NewsArticleProps) {
     const articleUrl = `/articles/${article.trending_id}`;
     const formattedDate = formatDate(article.publish_date);
 
+    const url =
+        article.image_url && article.image_url !== 'No image available'
+            ? article.image_url
+            : '/placeholder.svg';
+
     return (
         <article className="flex flex-col md:flex-row gap-4 border-b border-gray-200 pb-6">
             {/* Article Image */}
             <div className="md:w-1/4 flex-shrink-0">
                 <Link href={articleUrl}>
-                    <Image
-                        src={article.image_url || '/placeholder.svg'}
-                        alt={article.title}
-                        width={180}
-                        height={120}
-                        className="rounded-lg w-full h-auto object-cover"
-                    />
+                    {url && (
+                        <Image
+                            src={url}
+                            alt={article.title}
+                            width={180}
+                            height={120}
+                            className="rounded-lg w-full h-auto object-cover"
+                        />
+                    )}
                 </Link>
             </div>
 

@@ -1,5 +1,4 @@
-import { Article } from '@/types/article';
-import { TrendingArticlesResponse } from '@/types/article';
+import { Article, TrendingArticlesResponse } from '@/types/article';
 
 export class ArticleService {
     static async getArticles(
