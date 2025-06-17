@@ -15,7 +15,7 @@ print(f"Database connection variables: DB_NAME={os.getenv('DB_NAME')}, DATABASE=
 print(f"DO Database variables: DO_DB_NAME={os.getenv('DO_DB_NAME')}, DO_DB_HOST={os.getenv('DO_DB_HOST')}")
 
 SUPABASE_DATABASE_URL = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DATABASE')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}?sslmode=require"
-DIGITALOCEAN_DATABASE_URL = f"postgresql://{os.getenv('DO_DB_USERNAME')}:{os.getenv('DO_DB_PASSWORD')}@{os.getenv('DO_DB_HOST')}:{os.getenv('DO_DB_PORT')}/{os.getenv('DO_DB_NAME')}?sslmode=require"
+DIGITALOCEAN_DATABASE_URL = f"postgresql://{os.getenv('DO_DB_USERNAME')}:{os.getenv('DO_DB_PASSWORD')}@{os.getenv('DO_DB_HOST')}:{os.getenv('DO_DB_PORT')}/{os.getenv('DO_DB_NAME')}"
 
 def create_trending_articles_table_if_not_exists(do_engine):
     """Create the TrendingArticles table in DigitalOcean if it doesn't exist."""
@@ -77,7 +77,7 @@ def migrate_articles():
         print(f"Found {len(existing_ids)} existing articles in TrendingArticles")
         
         print("Fetching articles from Supabase...")
-        articles_query = text('SELECT * FROM "Articles"')
+        articles_query = text('SELECT * FROM "Articles" ORDER BY publish_date DESC LIMIT 1000')
         supabase_articles = sb_conn.execute(articles_query).fetchall()
         
         total_articles = len(supabase_articles)
