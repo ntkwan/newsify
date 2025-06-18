@@ -76,8 +76,8 @@ import { UsersModule } from './users/users.module';
                     synchronize: true,
                     models: [User, Article, Podcast],
                     dialectOptions: isDevelopment
-                        ? { ssl: { require: true, rejectUnauthorized: false } }
-                        : { ssl: false },
+                        ? { ssl: false }
+                        : { ssl: { require: true, rejectUnauthorized: false } },
                 };
             },
             inject: [ConfigService],
