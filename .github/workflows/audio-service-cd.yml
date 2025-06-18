@@ -1,7 +1,7 @@
 name: Audio Service CD
 
 on:
-  push: # push policy
+  push: 
     branches: [ main, dev ]
     paths:
       - 'services/audio-service/**'
