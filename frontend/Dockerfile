@@ -1,5 +1,8 @@
 FROM node:20-alpine as builder
 
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
