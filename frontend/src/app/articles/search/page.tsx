@@ -1,11 +1,11 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/pagination';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface Article {
     trendingId: string;
@@ -56,7 +56,7 @@ export default function SearchPage() {
             setIsLoading(true);
             try {
                 const response = await fetch(
-                    `https://backend.id.vn/articles/search?q=${encodeURIComponent(query)}&page=${currentPage}&size=${pageSize}`,
+                    `${process.env.NEXT_PUBLIC_API_BASE_URL}/articles/search?q=${encodeURIComponent(query)}&page=${currentPage}&size=${pageSize}`,
                 );
                 const data = await response.json();
                 setArticles(data.articles || []);

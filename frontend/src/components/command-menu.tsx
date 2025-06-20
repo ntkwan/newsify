@@ -1,9 +1,6 @@
 'use client';
 
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import {
     Command,
     CommandEmpty,
@@ -11,7 +8,10 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
 import { useEffect } from 'react';
 
 interface Article {
@@ -46,7 +46,7 @@ export function CommandMenu() {
             setIsLoading(true);
             try {
                 const response = await fetch(
-                    `https://backend.id.vn/articles/search?q=${encodeURIComponent(search)}&page=1&size=20`,
+                    `${process.env.NEXT_PUBLIC_API_BASE_URL}/articles/search?q=${encodeURIComponent(search)}&page=1&size=20`,
                 );
                 const data = await response.json();
                 setSearchResults(data.articles || []);
