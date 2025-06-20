@@ -83,7 +83,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/newsify-frontend:${{ steps.determine_tag.outputs.tag }}
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://dev.backend.id.vn:8080' }}
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://dev.backend.id.vn/api' }}
 
       - name: Set output variables
         id: set_output_vars
