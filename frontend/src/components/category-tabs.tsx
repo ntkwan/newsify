@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import type React from 'react';
 
 interface CategoryTabsProps {
+    title: string;
     categories: string[];
     activeCategory: string;
     onChange: (category: string) => void;
 }
 
-// CategoryTabs component
 const CategoryTabs: React.FC<CategoryTabsProps> = ({
+    title,
     categories,
     activeCategory,
     onChange,
