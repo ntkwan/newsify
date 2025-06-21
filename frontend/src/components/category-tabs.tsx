@@ -1,7 +1,7 @@
 'use client';
 
-import type React from 'react';
 import { Button } from '@/components/ui/button';
+import type React from 'react';
 
 interface CategoryTabsProps {
     categories: string[];
@@ -9,6 +9,7 @@ interface CategoryTabsProps {
     onChange: (category: string) => void;
 }
 
+// CategoryTabs component
 const CategoryTabs: React.FC<CategoryTabsProps> = ({
     categories,
     activeCategory,
